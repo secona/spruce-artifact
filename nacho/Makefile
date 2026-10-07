@@ -17,8 +17,8 @@ $(NACHO_LIBRARY):
 generated: nacho
 	./nacho
 
-spgemm: spgemm.cu generated
-	$(NVCC) $(CPPFLAGS) $(NVCCFLAGS) -I$(NACHO_DIR)/runtime $(LDFLAGS) spgemm.cu generated/spgemm_gpu.cu $(LDLIBS) -o $@
+spgemm: spgemm.cu ../common/cuda.h generated
+	$(NVCC) $(CPPFLAGS) $(NVCCFLAGS) -I.. -I$(NACHO_DIR)/runtime $(LDFLAGS) spgemm.cu generated/spgemm_gpu.cu $(LDLIBS) -o $@
 
 clean:
 	rm -f nacho nacho.d spgemm

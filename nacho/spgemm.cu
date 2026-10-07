@@ -1,17 +1,7 @@
+#include "common/cuda.h"
 #include "generated/spgemm_gpu.h"
 
 #include <cstdio>
-#include <cstdlib>
-
-#define CUDA_CHECK(call)                                                       \
-  do {                                                                         \
-    cudaError_t err = (call);                                                  \
-    if (err != cudaSuccess) {                                                  \
-      std::fprintf(stderr, "CUDA Error at %s:%d: %s\n", __FILE__, __LINE__,    \
-                   cudaGetErrorString(err));                                   \
-      std::exit(EXIT_FAILURE);                                                 \
-    }                                                                          \
-  } while (0)
 
 int main() {
   using Index = spgemm::index_t;
