@@ -1,25 +1,40 @@
 import argparse
+import os
 from pathlib import Path
-import shutil
+import shlex
+import subprocess
 
 
 OPERATIONS = ("spmv", "sddmm", "spgemm")
 
 
 def build(operation):
-    if operation not in OPERATIONS:
-        raise ValueError(f"Unknown operation: {operation}")
+    assert operation in OPERATIONS
 
     backend_dir = Path(__file__).resolve().parent
-    output_dir = backend_dir.parents[1] / "generated" / "cusparse"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    # cuSPARSE provides precompiled kernels; emit the CUDA API wrappers.
-    for header in ("common.cuh", "kernels.h"):
-        shutil.copyfile(backend_dir / "kernels" / header, output_dir / header)
-    output = output_dir / f"{operation}.cu"
-    # For the sake of same interface as other backends.
-    shutil.copyfile(backend_dir / "kernels" / output.name, output)
-    return output
+    generated_dir = backend_dir.parents[1] / "generated" / "cusparse"
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    library = generated_dir / f"libcusparse_{operation}.so"
+
+    subprocess.run(
+        [
+            *shlex.split(os.environ.get("NVCC", "nvcc")),
+            "-O3",
+            "-std=c++17",
+            "-shared",
+            "-Xcompiler=-fPIC",
+            "-I",
+            str(backend_dir / "kernels"),
+            str(backend_dir / "benchmark.cu"),
+            str(backend_dir / "kernels" / f"{operation}.cu"),
+            "-lcusparse",
+            "-o",
+            str(library),
+        ],
+        check=True
+    )
+
+    return library
 
 
 if __name__ == "__main__":

@@ -4,7 +4,8 @@ namespace spruce::cusparse {
 using namespace detail;
 
 void spmv(int m, int n, int64_t nnz, int *offsets, int *columns,
-          float *values, float *x, float *y, cudaStream_t stream) {
+          float *values, float *x, float *y, cudaStream_t stream,
+          const Benchmark *benchmark) {
     Handle handle;
     create_handle(handle, stream);
     SparseMatrix a;
@@ -18,9 +19,11 @@ void spmv(int m, int n, int64_t nnz, int *offsets, int *columns,
         &alpha, a.value, b.value, &beta, c.value, CUDA_R_32F,
         CUSPARSE_SPMV_ALG_DEFAULT, &bytes));
     Buffer buffer(bytes);
-    check(cusparseSpMV(handle.value, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, a.value, b.value, &beta, c.value, CUDA_R_32F,
-        CUSPARSE_SPMV_ALG_DEFAULT, buffer.value));
+    execute([&] {
+        check(cusparseSpMV(handle.value, CUSPARSE_OPERATION_NON_TRANSPOSE,
+            &alpha, a.value, b.value, &beta, c.value, CUDA_R_32F,
+            CUSPARSE_SPMV_ALG_DEFAULT, buffer.value));
+    }, stream, benchmark);
     check(cudaStreamSynchronize(stream));
 }
 

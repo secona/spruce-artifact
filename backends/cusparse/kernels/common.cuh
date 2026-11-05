@@ -30,6 +30,29 @@ using SparseMatrix = Resource<cusparseSpMatDescr_t, cusparseDestroySpMat>;
 using DenseMatrix = Resource<cusparseDnMatDescr_t, cusparseDestroyDnMat>;
 using DenseVector = Resource<cusparseDnVecDescr_t, cusparseDestroyDnVec>;
 using Product = Resource<cusparseSpGEMMDescr_t, cusparseSpGEMM_destroyDescr>;
+using Event = Resource<cudaEvent_t, cudaEventDestroy>;
+
+template <typename Function>
+void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
+    if (!benchmark) {
+        launch();
+        return;
+    }
+    if (benchmark->warmup < 0 || benchmark->repetitions < 1 || !benchmark->samples)
+        throw std::invalid_argument("Invalid benchmark configuration");
+    Event start, stop;
+    check(cudaEventCreate(&start.value));
+    check(cudaEventCreate(&stop.value));
+    for (int i = 0; i < benchmark->warmup; ++i) launch();
+    check(cudaStreamSynchronize(stream));
+    for (int i = 0; i < benchmark->repetitions; ++i) {
+        check(cudaEventRecord(start.value, stream));
+        launch();
+        check(cudaEventRecord(stop.value, stream));
+        check(cudaEventSynchronize(stop.value));
+        check(cudaEventElapsedTime(&benchmark->samples[i], start.value, stop.value));
+    }
+}
 
 struct Buffer : Resource<void *, cudaFree> {
     explicit Buffer(size_t bytes) {
