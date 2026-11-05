@@ -1,0 +1,60 @@
+import argparse
+from pathlib import Path
+import sys
+
+
+def build(operation):
+    import tvm
+    from tvm.sparse import lower_sparse_buffer, lower_sparse_iter
+
+    if __package__:
+        from .kernels.mttkrp import mttkrp
+        from .kernels.sddmm import sddmm
+        from .kernels.spmv import spmv
+    else:
+        from kernels.mttkrp import mttkrp
+        from kernels.sddmm import sddmm
+        from kernels.spmv import spmv
+
+    if operation == "spmv":
+        kernel = spmv(1024, 1024, 4096)
+    elif operation == "sddmm":
+        kernel = sddmm(1024, 1024, 32, 4096)
+    elif operation == "mttkrp":
+        kernel = mttkrp(1024, 1024, 1024, 32, 4096, 16384)
+    else:
+        raise ValueError(f"Unknown operation: {operation}")
+
+    sparse_mod = tvm.IRModule.from_expr(kernel)
+    schedule = tvm.tir.Schedule(lower_sparse_iter(sparse_mod))
+    # Each thread owns a row; sparse reductions remain serial within that row.
+    outer_block = schedule.get_block(f"{operation}0")
+    row = schedule.get_loops(outer_block)[0]
+    block, thread = schedule.split(row, factors=[None, 128])
+    schedule.bind(block, "blockIdx.x")
+    schedule.bind(thread, "threadIdx.x")
+    mod = lower_sparse_buffer(schedule.mod)
+
+    compiled = tvm.build(mod, target="cuda -arch=sm_80")
+    cuda_source = compiled.imported_modules[0].get_source("cu")
+
+    output_dir = Path(__file__).resolve().parents[2] / "generated" / "sparsetir"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / f"{operation}.sparse_tir.py").write_text(sparse_mod.script())
+    (output_dir / f"{operation}.tir.py").write_text(mod.script())
+    output = output_dir / f"{operation}.cu"
+    output.write_text(cuda_source)
+    return output
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--operation", choices=("spmv", "sddmm", "mttkrp"))
+    args = parser.parse_args()
+
+    # Use this checkout's SparseTIR fork, which provides tvm.sparse.
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "third_party" / "sparsetir" / "python"))
+
+    for operation in (args.operation,) if args.operation else ("spmv", "sddmm", "mttkrp"):
+        print(build(operation))
