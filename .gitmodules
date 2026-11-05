@@ -1,3 +1,6 @@
 [submodule "third_party/nacho"]
 	path = third_party/nacho
 	url = https://github.com/rootjalex/nacho
+[submodule "third_party/sparsetir"]
+	path = third_party/sparsetir
+	url = https://github.com/uwsampl/SparseTIR.git

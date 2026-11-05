@@ -1,0 +1,15 @@
+[project]
+name = "spruce-sparsetir-experiments"
+version = "0.1.0"
+description = "SparseTIR kernel build and code-generation experiments"
+requires-python = ">=3.9,<3.12"
+dependencies = [
+    "attrs",
+    "decorator",
+    # The pinned TVM fork uses np.float_, which was removed in NumPy 2.
+    "numpy<2",
+    "synr==0.6.0",
+]
+
+[tool.uv]
+package = false
