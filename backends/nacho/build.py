@@ -37,7 +37,13 @@ def get_nacho_compiler_exe():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", type=str)
-    args = parser.parse_args();
+    parser.add_argument("--operation", choices=("spgemm",))
+    args = parser.parse_args()
 
-    print(get_nacho_compiler_exe())
+    compiler = get_nacho_compiler_exe()
+    output_dir = Path(__file__).resolve().parents[2] / "generated" / "nacho"
+    command = [str(compiler), "--output-dir", str(output_dir)]
+    if args.operation:
+        command.extend(["--kernels", args.operation])
+    subprocess.run(command, check=True)
+    print(output_dir)
