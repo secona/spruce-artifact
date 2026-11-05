@@ -14,9 +14,9 @@ GPU_PIPELINE = (
 
 def build(operation, mlir_opt):
     backend_dir = Path(__file__).resolve().parent
-    output_dir = backend_dir / "generated"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"{operation}.mlir"
+    generated_dir = backend_dir.parents[1] / "generated" / "mlir_sparse_tensor"
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    output = generated_dir / f"{operation}.mlir"
     try:
         subprocess.run(
             [
