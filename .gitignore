@@ -1,2 +1,5 @@
 # Downloaded sparse matrices
 *.mtx
+
+**/__pycache__/
+/.venv/
