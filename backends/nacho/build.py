@@ -47,3 +47,26 @@ if __name__ == "__main__":
         command.extend(["--kernels", args.operation])
     subprocess.run(command, check=True)
     print(output_dir)
+
+    backend_dir = Path(__file__).resolve().parent
+    library = output_dir / "libnacho_spgemm.so"
+    subprocess.run(
+        [
+            *shlex.split(os.environ.get("NVCC", "nvcc")),
+            "-O3",
+            "-std=c++17",
+            "--expt-extended-lambda",
+            "-shared",
+            "-Xcompiler=-fPIC",
+            "-I",
+            str(output_dir),
+            "-I",
+            str(backend_dir.parents[1] / "third_party" / "nacho" / "runtime"),
+            str(backend_dir / "benchmark.cu"),
+            str(output_dir / "spgemm_gpu.cu"),
+            "-o",
+            str(library),
+        ],
+        check=True
+    )
+    print(library)
