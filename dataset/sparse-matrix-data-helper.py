@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download sparse matrix data into the repository-root matrices directory."""
+"""Download sparse matrix data into the repository-root dataset directory."""
 
 import argparse
 import gzip
@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 
-MATRICES_DIR = Path(__file__).resolve().parent.parent / "matrices"
+MATRICES_DIR = Path(__file__).resolve().parent
 
 # Add entries with a URL and an output filename ending in .mtx or .tns.
 # For tar archives, also specify the exact archive_member to extract.
@@ -91,7 +91,14 @@ def download():
 
 def clean():
     if MATRICES_DIR.exists():
-        shutil.rmtree(MATRICES_DIR)
+        script = Path(__file__).resolve()
+        for path in MATRICES_DIR.iterdir():
+            if path == script:
+                continue
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
         print(f"Deleted downloaded matrices: {MATRICES_DIR}")
     else:
         print("No downloaded matrices to delete.")
@@ -232,7 +239,7 @@ def main():
     )
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("download", help="Download all matrices in the list")
-    commands.add_parser("clean", help="Delete the matrices directory and all its contents")
+    commands.add_parser("clean", help="Delete downloaded data, preserving this script")
     commands.add_parser("verify", help="Check that every listed matrix exists and is nonempty")
     commands.add_parser("info", help="Read metadata from downloaded matrix and tensor files")
     args = parser.parse_args()
