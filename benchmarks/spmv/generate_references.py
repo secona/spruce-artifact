@@ -4,15 +4,11 @@ from pathlib import Path
 import numpy as np
 from scipy import io, sparse
 import torch
+import config
 
 
 ROOT = Path(__file__).resolve().parents[2]
 CURR = Path(__file__).resolve().parent
-
-
-def get_matrices():
-    matrices_txt = CURR / "matrices.txt"
-    return matrices_txt.read_text().splitlines()
 
 
 def main():
@@ -25,7 +21,7 @@ def main():
     assert torch.cuda.is_available()
     assert 0 <= args.device < torch.cuda.device_count()
 
-    for name in get_matrices():
+    for name in config.MATRICES:
         matrixfile = ROOT / "dataset" / name
         run(matrixfile, args.seed, args.device)
 
