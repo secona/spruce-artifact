@@ -14,28 +14,27 @@ def main():
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeat", type=int, default=100)
     parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     assert 0 <= args.warmup <= INT_MAX
     assert 1 <= args.repeat <= INT_MAX
     assert 0 <= args.device <= INT_MAX
-    assert args.seed >= 0
 
     if args.operation == "spmv":
         from benchmarks.spmv import config
-        for name in config.MATRICES:
-            matrixfile = Path("dataset") / name
-            run_spmv(matrixfile, args.seed, args.repeat, args.device, args.warmup)
+        for (A_filename, x_filename) in config.CASES:
+            A_path = Path("dataset") / A_filename
+            x_path = Path("dataset") / x_filename
+            run_spmv(A_path, x_path, args.repeat, args.device, args.warmup)
 
 
-def run_spmv(matrixfile, seed, repeat, device, warmup):
+def run_spmv(A_path, x_path, repeat, device, warmup):
     run_utc = datetime.now(timezone.utc).isoformat()
 
     library_path = Path("generated") / "cusparse" / "libcusparse_spmv.so"
     assert library_path.is_file()
 
-    matrix = io.mmread(matrixfile, spmatrix=False)
+    matrix = io.mmread(A_path, spmatrix=False)
     assert not np.iscomplexobj(matrix)
 
     A = sparse.csr_matrix(matrix, dtype=np.float32)
@@ -50,7 +49,7 @@ def run_spmv(matrixfile, seed, repeat, device, warmup):
     offsets = np.ascontiguousarray(A.indptr, dtype=np.int32)
     columns = np.ascontiguousarray(A.indices, dtype=np.int32)
     values = np.ascontiguousarray(A.data, dtype=np.float32)
-    x = np.random.default_rng(seed).random(n, dtype=np.float32)
+    x = np.load(x_path)
     samples = np.empty(repeat, dtype=np.float32)
 
     library = ct.CDLL(str(library_path))
@@ -71,11 +70,10 @@ def run_spmv(matrixfile, seed, repeat, device, warmup):
 
     result = {
         "operation": "spmv",
-        "matrix": str(matrixfile.resolve()),
+        "matrix": str(A_path.resolve()),
         "shape": [m, n],
         "nnz": A.nnz,
         "device": device,
-        "seed": seed,
         "warmup": warmup,
         "repeat": repeat,
         "timing": "cuda_events",
@@ -97,7 +95,7 @@ def run_spmv(matrixfile, seed, repeat, device, warmup):
     with output.open("a", newline="", encoding="utf-8") as out:
         writer = csv.DictWriter(out, fieldnames=[
             "run_utc", "operation", "matrix", "rows", "cols", "nnz",
-            "device", "seed", "warmup", "iteration", "elapsed_ms",
+            "device", "warmup", "iteration", "elapsed_ms",
         ])
         if out.tell() == 0:
             writer.writeheader()
@@ -110,7 +108,6 @@ def run_spmv(matrixfile, seed, repeat, device, warmup):
                 "cols": n,
                 "nnz": A.nnz,
                 "device": device,
-                "seed": seed,
                 "warmup": warmup,
                 "iteration": iteration,
                 "elapsed_ms": float(elapsed),

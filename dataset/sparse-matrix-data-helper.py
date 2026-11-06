@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Download sparse matrix data into the repository-root dataset directory."""
-
 import argparse
 import gzip
 from pathlib import Path
@@ -14,6 +11,7 @@ from urllib.request import urlopen
 
 
 MATRICES_DIR = Path(__file__).resolve().parent
+SEED = 1234
 
 # Add entries with a URL and an output filename ending in .mtx or .tns.
 # For tar archives, also specify the exact archive_member to extract.
@@ -78,11 +76,36 @@ def download_matrix(matrix):
     print(f"Downloaded: {destination}")
 
 
+def generate_vector(path):
+    """Save one float32 SpMV input per matrix and seed, including cached matrices."""
+    import numpy as np
+    from scipy.io import mminfo
+
+    destination = path.with_name(f"{path.stem}_x.npy")
+    columns = mminfo(path)[1]
+    if is_downloaded(destination):
+        x = np.load(destination, allow_pickle=False)
+        if x.shape != (columns,) or x.dtype != np.float32 or not np.all(np.isfinite(x)):
+            raise ValueError(f"Invalid SpMV vector: {destination}")
+        print(f"Already generated: {destination.name}")
+        return
+
+    x = np.random.default_rng(SEED).random(columns, dtype=np.float32)
+    with tempfile.TemporaryDirectory(prefix=".vector-", dir=MATRICES_DIR) as temp_dir:
+        output = Path(temp_dir) / destination.name
+        np.save(output, x, allow_pickle=False)
+        output.replace(destination)
+    print(f"Generated: {destination}")
+
+
 def download():
     failed = False
     for matrix in MATRICES:
         try:
             download_matrix(matrix)
+            path = matrix_path(matrix)
+            if path.suffix == ".mtx":
+                generate_vector(path)
         except (OSError, URLError, tarfile.TarError, EOFError, ValueError) as error:
             print(f"Failed to download {matrix['filename']}: {error}", file=sys.stderr)
             failed = True
@@ -109,13 +132,17 @@ def verify():
     missing = False
     for matrix in MATRICES:
         path = matrix_path(matrix)
-        if is_downloaded(path):
-            print(f"OK: {path.name}")
-        else:
-            print(f"Missing or empty: {path.name}")
-            missing = True
+        paths = [path]
+        if path.suffix == ".mtx":
+            paths.append(path.with_name(f"{path.stem}_x.npy"))
+        for candidate in paths:
+            if is_downloaded(candidate):
+                print(f"OK: {candidate.name}")
+            else:
+                print(f"Missing or empty: {candidate.name}")
+                missing = True
     if not missing:
-        print("All matrices are downloaded.")
+        print("All matrices and input vectors are available.")
     return int(missing)
 
 
