@@ -1,8 +1,18 @@
 # Artifact
 
+## Submodules
+
 ```sh
 git submodule update --init --recursive --depth=1
 ```
+
+## Building
+
+These are the environment variables required to build the artifact.
+
+- `LLVM_14_BUILD_DIR` points to the `build` directory of an LLVM 14 checkout.
+
+## Running Python Programs
 
 Run Python programs as modules from the repository root:
 
