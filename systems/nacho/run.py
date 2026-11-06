@@ -40,7 +40,7 @@ def load_matrix(path, np, io, sparse):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operation", choices=("spgemm",), default="spgemm")
+    parser.add_argument("--operation", choices=("spgemm",))
     parser.add_argument("--matrix", type=Path, required=True, help="Matrix Market input A")
     parser.add_argument("--matrix-b", type=Path, help="Matrix Market input B (default: A, for square A)")
     # Defaults from third_party/nacho/benchmarks/config.py.

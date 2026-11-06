@@ -4,6 +4,9 @@ import subprocess
 from pathlib import Path
 
 
+OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
+
+
 def build(operation, llvm_build_dir):
     backend_dir = Path("systems/mlir_sparse_tensor")
     kernels_dir = backend_dir / "kernels"
@@ -50,11 +53,11 @@ def build(operation, llvm_build_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=("spmv", "mttkrp", "sddmm", "spgemm"))
+    parser.add_argument("--operation", choices=OPERATIONS)
     args = parser.parse_args()
 
     llvm_build_dir = os.getenv("LLVM_DIR")
     assert llvm_build_dir
 
-    for operation in (args.operation,) if args.operation else ("spmv", "mttkrp"):
+    for operation in (args.operation,) if args.operation else OPERATIONS:
         print("[Built]", build(operation, Path(llvm_build_dir)))

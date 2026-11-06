@@ -11,7 +11,7 @@ INT_MAX = 2**31 - 1
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=("spmv", "sddmm", "spgemm", "all"), default="all")
+    parser.add_argument("--operation", choices=("spmv", "sddmm", "spgemm"))
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeat", type=int, default=100)
     parser.add_argument("--device", type=int, default=0)
@@ -21,14 +21,14 @@ def main():
     assert 1 <= args.repeat <= INT_MAX
     assert 0 <= args.device <= INT_MAX
 
-    if args.operation == "spmv" or args.operation == "all":
+    if args.operation is None or args.operation == "spmv":
         from benchmarks.spmv import config
         for (A_filename, x_filename) in config.CASES:
             A_path = Path("dataset") / A_filename
             x_path = Path("dataset") / x_filename
             run_spmv(A_path, x_path, args.repeat, args.device, args.warmup)
 
-    if args.operation == "spgemm" or args.operation == "all":
+    if args.operation is None or args.operation == "spgemm":
         from benchmarks.spgemm import config
         for (A_filename, B_filename) in config.CASES:
             A_path = Path("dataset") / A_filename
