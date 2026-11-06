@@ -25,7 +25,7 @@ def build(operation):
             "-Xcompiler=-fPIC",
             "-I",
             str(backend_dir / "kernels"),
-            str(backend_dir / "benchmark.cu"),
+            str(backend_dir / ("benchmark_spgemm.cu" if operation == "spgemm" else "benchmark.cu")),
             str(backend_dir / "kernels" / f"{operation}.cu"),
             "-lcusparse",
             "-o",
