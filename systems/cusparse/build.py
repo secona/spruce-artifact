@@ -8,7 +8,7 @@ import subprocess
 OPERATIONS = ("spmv", "sddmm", "spgemm")
 
 
-def build(operation):
+def build(operation, gpu_arch):
     assert operation in OPERATIONS
 
     backend_dir = Path("systems/cusparse")
@@ -19,6 +19,7 @@ def build(operation):
     subprocess.run(
         [
             *shlex.split(os.environ.get("NVCC", "nvcc")),
+            f"-arch={gpu_arch}",
             "-O3",
             "-std=c++17",
             "-shared",
@@ -40,7 +41,8 @@ def build(operation):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--operation", choices=OPERATIONS)
+    parser.add_argument("--gpu-arch", default="sm_86")
     args = parser.parse_args()
 
     for operation in (args.operation,) if args.operation else OPERATIONS:
-        print(build(operation))
+        print(build(operation, args.gpu_arch))

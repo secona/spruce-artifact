@@ -7,7 +7,7 @@ from pathlib import Path
 OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
 
 
-def build(operation, llvm_build_dir):
+def build(operation, llvm_build_dir, gpu_arch):
     backend_dir = Path("systems/mlir_sparse_tensor")
     kernels_dir = backend_dir / "kernels"
     generated_dir = Path("generated") / "mlir_sparse_tensor"
@@ -22,7 +22,7 @@ def build(operation, llvm_build_dir):
             str(mlir_opt),
             str(kernels_dir / f"{operation}.mlir"),
             # f"--pass-pipeline={GPU_PIPELINE}",
-            "--sparsifier=gpu-triple=nvptx64-nvidia-cuda gpu-chip=sm_75 enable-gpu-libgen=false parallelization-strategy=dense-outer-loop",
+            f"--sparsifier=gpu-triple=nvptx64-nvidia-cuda gpu-chip={gpu_arch} enable-gpu-libgen=false parallelization-strategy=dense-outer-loop",
             "-o",
             str(generated_dir / f"{operation}.mlir"),
         ],
@@ -54,10 +54,11 @@ def build(operation, llvm_build_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--operation", choices=OPERATIONS)
+    parser.add_argument("--gpu-arch", default="sm_86")
     args = parser.parse_args()
 
     llvm_build_dir = os.getenv("LLVM_DIR")
     assert llvm_build_dir
 
     for operation in (args.operation,) if args.operation else OPERATIONS:
-        print("[Built]", build(operation, Path(llvm_build_dir)))
+        print("[Built]", build(operation, Path(llvm_build_dir), args.gpu_arch))
