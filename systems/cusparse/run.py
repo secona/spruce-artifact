@@ -1,12 +1,13 @@
 import argparse
-import csv
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
 from scipy import io, sparse
+from benchmarks.result import BenchmarkResult, InputInfo
 
 INT_MAX = 2**31 - 1
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -75,51 +76,20 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     if error:
         raise RuntimeError(error.decode())
 
-    result = {
-        "operation": "spmv",
-        "matrix": str(A_path.resolve()),
-        "shape": [m, n],
-        "nnz": A.nnz,
-        "device": device,
-        "warmup": warmup,
-        "repeat": repeat,
-        "timing": "cuda_events",
-        "scope": "execution",
-        "median_ms": float(np.median(samples)),
-        "mean_ms": float(np.mean(samples)),
-        "min_ms": float(np.min(samples)),
-        "max_ms": float(np.max(samples)),
-        "samples_ms": samples.tolist(),
-    }
-
-    print(f"SpMV: shape={A.shape}, nnz={A.nnz}")
-    print(f"CUDA events: median={result['median_ms']:.6f} ms, "
-          f"mean={result['mean_ms']:.6f} ms, min={result['min_ms']:.6f} ms "
-          f"({repeat} samples)")
-
-    output = Path("generated/cusparse/spmv.csv")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("a", newline="", encoding="utf-8") as out:
-        writer = csv.DictWriter(out, fieldnames=[
-            "run_utc", "operation", "matrix", "rows", "cols", "nnz",
-            "device", "warmup", "iteration", "elapsed_ms",
-        ])
-        if out.tell() == 0:
-            writer.writeheader()
-        for iteration, elapsed in enumerate(samples, start=1):
-            writer.writerow({
-                "run_utc": run_utc,
-                "operation": "spmv",
-                "matrix": result["matrix"],
-                "rows": m,
-                "cols": n,
-                "nnz": A.nnz,
-                "device": device,
-                "warmup": warmup,
-                "iteration": iteration,
-                "elapsed_ms": float(elapsed),
-            })
-    print(f"Recorded {repeat} executions: {output}")
+    result = BenchmarkResult(
+        run_utc=run_utc,
+        backend="cusparse",
+        operation="spmv",
+        inputs={
+            "A": InputInfo(str(A_path.resolve()), A.shape, A.nnz),
+            "x": InputInfo(str(x_path.resolve()), x.shape),
+        },
+        device=device,
+        warmup=warmup,
+        samples_ms=samples.tolist(),
+    )
+    result.print_summary()
+    result.write_csv("generated/cusparse/spmv.csv")
 
 
 def run_spgemm(A_path, B_path, repeat, device, warmup):
@@ -175,57 +145,20 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     if error:
         raise RuntimeError(error.decode())
 
-    result = {
-        "operation": "spgemm",
-        "matrix_a": str(A_path.resolve()),
-        "matrix_b": str(B_path.resolve()),
-        "shape_a": [m, k],
-        "shape_b": [k, n],
-        "nnz_a": A.nnz,
-        "nnz_b": B.nnz,
-        "device": device,
-        "warmup": warmup,
-        "repeat": repeat,
-        "timing": "cuda_events",
-        "scope": "execution",
-        "median_ms": float(np.median(samples)),
-        "mean_ms": float(np.mean(samples)),
-        "min_ms": float(np.min(samples)),
-        "max_ms": float(np.max(samples)),
-        "samples_ms": samples.tolist(),
-    }
-
-    print(f"SpGEMM: A={A.shape}, nnzA={A.nnz}, B={B.shape}, nnzB={B.nnz}")
-    print(f"CUDA events: median={result['median_ms']:.6f} ms, "
-          f"mean={result['mean_ms']:.6f} ms, min={result['min_ms']:.6f} ms "
-          f"({repeat} samples)")
-
-    output = Path("generated/cusparse/spgemm.csv")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("a", newline="", encoding="utf-8") as out:
-        writer = csv.DictWriter(out, fieldnames=[
-            "run_utc", "operation", "matrix_a", "matrix_b", "m", "k", "n",
-            "nnz_a", "nnz_b", "device", "warmup", "iteration", "elapsed_ms",
-        ])
-        if out.tell() == 0:
-            writer.writeheader()
-        for iteration, elapsed in enumerate(samples, start=1):
-            writer.writerow({
-                "run_utc": run_utc,
-                "operation": "spgemm",
-                "matrix_a": result["matrix_a"],
-                "matrix_b": result["matrix_b"],
-                "m": m,
-                "k": k,
-                "n": n,
-                "nnz_a": A.nnz,
-                "nnz_b": B.nnz,
-                "device": device,
-                "warmup": warmup,
-                "iteration": iteration,
-                "elapsed_ms": float(elapsed),
-            })
-    print(f"Recorded {repeat} executions: {output}")
+    result = BenchmarkResult(
+        run_utc=run_utc,
+        backend="cusparse",
+        operation="spgemm",
+        inputs={
+            "A": InputInfo(str(A_path.resolve()), A.shape, A.nnz),
+            "B": InputInfo(str(B_path.resolve()), B.shape, B.nnz),
+        },
+        device=device,
+        warmup=warmup,
+        samples_ms=samples.tolist(),
+    )
+    result.print_summary()
+    result.write_csv("generated/cusparse/spgemm.csv")
 
 
 if __name__ == "__main__":
