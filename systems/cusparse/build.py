@@ -11,8 +11,8 @@ OPERATIONS = ("spmv", "sddmm", "spgemm")
 def build(operation):
     assert operation in OPERATIONS
 
-    backend_dir = Path(__file__).resolve().parent
-    generated_dir = backend_dir.parents[1] / "generated" / "cusparse"
+    backend_dir = Path("systems/cusparse")
+    generated_dir = Path("generated") / "cusparse"
     generated_dir.mkdir(parents=True, exist_ok=True)
     library = generated_dir / f"libcusparse_{operation}.so"
 

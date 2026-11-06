@@ -7,7 +7,7 @@ Filenames include the system name alongside the operation and timing context.
 
 Examples:
     python -m benchmarks.plot
-    python benchmarks/plot.py generated/cusparse/spmv.csv --log
+    python -m benchmarks.plot generated/cusparse/spmv.csv --log
     python -m benchmarks.plot --operation spmv --all-runs
 """
 
@@ -21,7 +21,6 @@ import re
 from .result import BenchmarkResult, InputInfo
 
 
-ROOT = Path(__file__).resolve().parents[1]
 _REQUIRED_COLUMNS = {
     "run_utc", "backend", "operation", "device", "warmup", "scope", "elapsed_ms",
 }
@@ -181,11 +180,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("csv", type=Path, nargs="*", help="Input CSVs (default: generated/*/*.csv)")
     parser.add_argument("--operation", help="Only plot this operation, e.g. spmv or spgemm")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "generated" / "plots")
+    parser.add_argument("--output-dir", type=Path, default=Path("generated/plots"))
     parser.add_argument("--all-runs", action="store_true", help="Show each historical run as a separate box")
     parser.add_argument("--log", action="store_true", help="Use a logarithmic elapsed-time axis")
     args = parser.parse_args()
-    paths = args.csv or sorted((ROOT / "generated").glob("*/*.csv"))
+    paths = args.csv or sorted(Path("generated").glob("*/*.csv"))
     if not paths:
         parser.exit(1, "No benchmark CSVs found. Run a benchmark first or provide CSV paths.\n")
     try:

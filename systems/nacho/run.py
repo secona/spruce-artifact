@@ -51,7 +51,7 @@ def main():
     parser.add_argument("--threads-per-block", type=int, default=256)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--output", type=Path,
-                        default=Path(__file__).resolve().parents[2] / "generated" / "nacho" / "spgemm.csv",
+                        default=Path("generated/nacho") / "spgemm.csv",
                         help="Append one CSV row per timed execution (default: generated/nacho/spgemm.csv)")
     args = parser.parse_args()
     int_max = 2**31 - 1
@@ -61,10 +61,10 @@ def main():
         parser.error("trim must be nonnegative and repeat must exceed 2 * trim (use --trim 0 for short runs)")
     if args.blocks < 1 or args.threads_per_block < 1 or args.blocks * args.threads_per_block >= int_max:
         parser.error("blocks and threads-per-block must be positive; their product must be less than int32 max")
-    library_path = Path(__file__).resolve().parents[2] / "generated" / "nacho" / "libnacho_spgemm.so"
+    library_path = Path("generated/nacho") / "libnacho_spgemm.so"
     if not library_path.is_file():
         parser.exit(1, f"Missing benchmark library: {library_path}\n"
-                    "Build it first: python backends/nacho/build.py\n")
+                    "Build it first: python -m systems.nacho.build\n")
     try:
         import numpy as np
         from scipy import io, sparse
@@ -81,7 +81,7 @@ def main():
     try:
         benchmark = library.spruce_benchmark_spgemm
     except AttributeError as error:
-        raise RuntimeError("Rebuild the library: python backends/nacho/build.py") from error
+        raise RuntimeError("Rebuild the library: python -m systems.nacho.build") from error
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
         ct.c_int, ct.POINTER(HostCsr), ct.POINTER(HostCsr),

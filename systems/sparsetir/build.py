@@ -1,20 +1,14 @@
 import argparse
 from pathlib import Path
-import sys
 
 
 def build(operation):
     import tvm
     from tvm.sparse import lower_sparse_buffer, lower_sparse_iter
 
-    if __package__:
-        from .kernels.mttkrp import mttkrp
-        from .kernels.sddmm import sddmm
-        from .kernels.spmv import spmv
-    else:
-        from kernels.mttkrp import mttkrp
-        from kernels.sddmm import sddmm
-        from kernels.spmv import spmv
+    from .kernels.mttkrp import mttkrp
+    from .kernels.sddmm import sddmm
+    from .kernels.spmv import spmv
 
     if operation == "spmv":
         kernel = spmv(1024, 1024, 4096)
@@ -38,7 +32,7 @@ def build(operation):
     compiled = tvm.build(mod, target="cuda -arch=sm_80")
     cuda_source = compiled.imported_modules[0].get_source("cu")
 
-    output_dir = Path(__file__).resolve().parents[2] / "generated" / "sparsetir"
+    output_dir = Path("generated/sparsetir")
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / f"{operation}.sparse_tir.py").write_text(sparse_mod.script())
     (output_dir / f"{operation}.tir.py").write_text(mod.script())
@@ -51,10 +45,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--operation", choices=("spmv", "sddmm", "mttkrp"))
     args = parser.parse_args()
-
-    # Use this checkout's SparseTIR fork, which provides tvm.sparse.
-    root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "third_party" / "sparsetir" / "python"))
 
     for operation in (args.operation,) if args.operation else ("spmv", "sddmm", "mttkrp"):
         print(build(operation))

@@ -5,9 +5,9 @@ from pathlib import Path
 
 
 def build(operation, llvm_build_dir):
-    backend_dir = Path(__file__).resolve().parent
+    backend_dir = Path("systems/mlir_sparse_tensor")
     kernels_dir = backend_dir / "kernels"
-    generated_dir = backend_dir.parents[1] / "generated" / "mlir_sparse_tensor"
+    generated_dir = Path("generated") / "mlir_sparse_tensor"
     generated_dir.mkdir(parents=True, exist_ok=True)
 
     mlir_opt = llvm_build_dir / "bin" / "mlir-opt"

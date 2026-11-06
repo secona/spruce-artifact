@@ -4,11 +4,7 @@ from pathlib import Path
 import numpy as np
 from scipy import io, sparse
 import torch
-import config
-
-
-ROOT = Path(__file__).resolve().parents[2]
-CURR = Path(__file__).resolve().parent
+from . import config
 
 
 def main():
@@ -22,7 +18,7 @@ def main():
     assert 0 <= args.device < torch.cuda.device_count()
 
     for name in config.MATRICES:
-        matrixfile = ROOT / "dataset" / name
+        matrixfile = Path("dataset") / name
         run(matrixfile, args.seed, args.device)
 
 
@@ -54,7 +50,7 @@ def run(matrixfile, seed, device):
     with torch.inference_mode():
         y = torch.mv(a_gpu, torch.from_numpy(x).to(device)).cpu().numpy()
 
-    output = CURR / "references" / f"{matrixfile.stem}.npz"
+    output = Path("benchmarks/spmv/references") / f"{matrixfile.stem}.npz"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     np.savez_compressed(

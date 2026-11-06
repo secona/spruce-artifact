@@ -6,11 +6,11 @@ from pathlib import Path
 
 
 def get_nacho_compiler_exe():
-    backend_dir = Path(__file__).resolve().parent
+    backend_dir = Path("systems/nacho")
     compiler = backend_dir / "compiler"
     if not compiler.is_file():
         print("--- Building Nacho compiler")
-        nacho_dir = backend_dir.parents[1] / "third_party" / "nacho"
+        nacho_dir = Path("third_party/nacho")
         build_dir = nacho_dir / "build"
         library = build_dir / "libnacho_library.a"
         if not library.is_file():
@@ -41,14 +41,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     compiler = get_nacho_compiler_exe()
-    output_dir = Path(__file__).resolve().parents[2] / "generated" / "nacho"
+    output_dir = Path("generated/nacho")
     command = [str(compiler), "--output-dir", str(output_dir)]
     if args.operation:
         command.extend(["--kernels", args.operation])
     subprocess.run(command, check=True)
     print(output_dir)
 
-    backend_dir = Path(__file__).resolve().parent
+    backend_dir = Path("systems/nacho")
     library = output_dir / "libnacho_spgemm.so"
     subprocess.run(
         [
@@ -61,7 +61,7 @@ if __name__ == "__main__":
             "-I",
             str(output_dir),
             "-I",
-            str(backend_dir.parents[1] / "third_party" / "nacho" / "runtime"),
+            str(Path("third_party/nacho") / "runtime"),
             str(backend_dir / "benchmark.cu"),
             str(output_dir / "spgemm_gpu.cu"),
             "-o",

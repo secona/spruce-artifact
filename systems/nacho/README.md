@@ -3,7 +3,7 @@
 Build the compiler, generate SpGEMM, then compile and link the benchmark library:
 
 ```sh
-python backends/nacho/build.py
+python -m systems.nacho.build
 ```
 
 `build.py` retains the original compiler helper and source-generation flow,
@@ -16,8 +16,8 @@ changing the compiler, generated kernel, runtime headers, or bridge.
 Run a square matrix product `A @ A`, or supply a compatible second matrix:
 
 ```sh
-python backends/nacho/run.py --matrix dataset/bcsstk01.mtx
-python backends/nacho/run.py --matrix A.mtx --matrix-b B.mtx --output generated/nacho/spgemm.csv
+python -m systems.nacho.run --matrix dataset/bcsstk01.mtx
+python -m systems.nacho.run --matrix A.mtx --matrix-b B.mtx --output generated/nacho/spgemm.csv
 ```
 
 `run.py` requires NumPy, SciPy, CUDA runtime libraries, and a working GPU. It loads

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 
-MATRICES_DIR = Path(__file__).resolve().parent
+MATRICES_DIR = Path("dataset")
 SEED = 1234
 
 # Add entries with a URL and an output filename ending in .mtx or .tns.
@@ -119,7 +119,7 @@ def download():
 
 def clean():
     if MATRICES_DIR.exists():
-        script = Path(__file__).resolve()
+        script = MATRICES_DIR / "sparse-matrix-data-helper.py"
         for path in MATRICES_DIR.iterdir():
             if path == script:
                 continue

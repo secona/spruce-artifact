@@ -9,7 +9,7 @@ Build the SpMV benchmark library (CUDA Toolkit with cuSPARSE and a C++17
 host compiler required):
 
 ```sh
-python backends/cusparse/build.py
+python -m systems.cusparse.build
 ```
 
 `build()` compiles and links `kernels/spmv.cu` with the benchmark bridge into
@@ -37,9 +37,9 @@ The runner requires Python with NumPy and SciPy, the CUDA runtime libraries,
 and a working CUDA GPU. It loads the prebuilt library and benchmarks `y = A @ x`.
 
 ```sh
-python backends/cusparse/build.py
-python backends/cusparse/run.py --matrix dataset/bcsstk01.mtx
-python backends/cusparse/run.py --matrix dataset/bcsstk01.mtx --warmup 10 --repeat 100 --output generated/cusparse/spmv.csv
+python -m systems.cusparse.build
+python -m systems.cusparse.run --operation spmv
+python -m systems.cusparse.run --operation spmv --warmup 10 --repeat 100
 ```
 
 The Matrix Market input is converted to sorted CSR with float32 values and
