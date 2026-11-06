@@ -22,7 +22,7 @@ def build(operation, gpu_arch):
     sparse_mod = tvm.IRModule.from_expr(kernel)
     schedule = tvm.tir.Schedule(lower_sparse_iter(sparse_mod))
     # Each thread owns a row; sparse reductions remain serial within that row.
-    outer_block = schedule.get_block(f"{operation}0")
+    outer_block = schedule.get_block(f"{operation}0", func_name=operation)
     row = schedule.get_loops(outer_block)[0]
     block, thread = schedule.split(row, factors=[None, 128])
     schedule.bind(block, "blockIdx.x")

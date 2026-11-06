@@ -24,6 +24,15 @@ python -m dataset.sparse-matrix-data-helper download
 ```
 
 Source, dataset, and generated output paths are relative to the repository root.
+`./build_deps.sh sparsetir` applies `patches/sparsetir-numpy-2.patch` directly
+to the SparseTIR submodule before building, skipping it if already applied.
+The patch removes the obsolete `np.float_` alias; `np.float64` is already mapped.
+No fork or submodule commit is needed. To apply it manually from the repository root:
+
+```sh
+git -C third_party/sparsetir apply ../../patches/sparsetir-numpy-2.patch
+```
+
 For SparseTIR, make the checkout's Python package available when running its builder:
 
 ```sh
