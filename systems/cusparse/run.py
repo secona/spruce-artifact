@@ -9,7 +9,7 @@ from scipy import io, sparse
 INT_MAX = 2**31 - 1
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--operation", choices=("spmv", "sddmm", "spgemm"))
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeat", type=int, default=100)
@@ -22,38 +22,38 @@ def main():
     assert 0 <= args.device <= INT_MAX
     assert args.seed >= 0
 
-    library_path = Path("generated") / "cusparse" / "libcusparse_spmv.so"
-    assert library_path.is_file()
-
     if args.operation == "spmv":
         from benchmarks.spmv import config
         for name in config.MATRICES:
             matrixfile = Path("dataset") / name
-            run(matrixfile, args.seed, args.repeat, library_path, args.device, args.warmup)
+            run_spmv(matrixfile, args.seed, args.repeat, args.device, args.warmup)
 
 
-def run(matrixfile, seed, repeat, libpath, device, warmup):
+def run_spmv(matrixfile, seed, repeat, device, warmup):
     run_utc = datetime.now(timezone.utc).isoformat()
+
+    library_path = Path("generated") / "cusparse" / "libcusparse_spmv.so"
+    assert library_path.is_file()
 
     matrix = io.mmread(matrixfile, spmatrix=False)
     assert not np.iscomplexobj(matrix)
 
-    a = sparse.csr_matrix(matrix, dtype=np.float32)
-    a.sum_duplicates()
-    a.sort_indices()
-    m, n = a.shape
+    A = sparse.csr_matrix(matrix, dtype=np.float32)
+    A.sum_duplicates()
+    A.sort_indices()
+    m, n = A.shape
 
     assert min(m, n) >= 1
-    assert max(m, n, a.nnz) <= INT_MAX
-    assert np.all(np.isfinite(a.data))
+    assert max(m, n, A.nnz) <= INT_MAX
+    assert np.all(np.isfinite(A.data))
 
-    offsets = np.ascontiguousarray(a.indptr, dtype=np.int32)
-    columns = np.ascontiguousarray(a.indices, dtype=np.int32)
-    values = np.ascontiguousarray(a.data, dtype=np.float32)
+    offsets = np.ascontiguousarray(A.indptr, dtype=np.int32)
+    columns = np.ascontiguousarray(A.indices, dtype=np.int32)
+    values = np.ascontiguousarray(A.data, dtype=np.float32)
     x = np.random.default_rng(seed).random(n, dtype=np.float32)
     samples = np.empty(repeat, dtype=np.float32)
 
-    library = ct.CDLL(str(libpath))
+    library = ct.CDLL(str(library_path))
     benchmark = library.spruce_benchmark_spmv
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
@@ -63,7 +63,7 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
     ]
 
     error = benchmark(
-        device, m, n, a.nnz, offsets.ctypes.data, columns.ctypes.data,
+        device, m, n, A.nnz, offsets.ctypes.data, columns.ctypes.data,
         values.ctypes.data, x.ctypes.data, warmup, repeat, samples.ctypes.data,
     )
     if error:
@@ -73,7 +73,7 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
         "operation": "spmv",
         "matrix": str(matrixfile.resolve()),
         "shape": [m, n],
-        "nnz": a.nnz,
+        "nnz": A.nnz,
         "device": device,
         "seed": seed,
         "warmup": warmup,
@@ -87,7 +87,7 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
         "samples_ms": samples.tolist(),
     }
 
-    print(f"SpMV: shape={a.shape}, nnz={a.nnz}")
+    print(f"SpMV: shape={A.shape}, nnz={A.nnz}")
     print(f"CUDA events: median={result['median_ms']:.6f} ms, "
           f"mean={result['mean_ms']:.6f} ms, min={result['min_ms']:.6f} ms "
           f"({repeat} samples)")
@@ -108,7 +108,7 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
                 "matrix": result["matrix"],
                 "rows": m,
                 "cols": n,
-                "nnz": a.nnz,
+                "nnz": A.nnz,
                 "device": device,
                 "seed": seed,
                 "warmup": warmup,
