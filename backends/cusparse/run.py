@@ -1,12 +1,8 @@
-#!/usr/bin/env python3
-"""Run and benchmark cuSPARSE SpMV using CUDA events."""
-
 import argparse
 import csv
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
 import numpy as np
 from scipy import io, sparse
 
@@ -46,10 +42,11 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
     a.sum_duplicates()
     a.sort_indices()
     m, n = a.shape
-    if min(m, n) < 1 or max(m, n, a.nnz) > INT_MAX:
-        raise ValueError("Matrix dimensions must be positive; dimensions and nnz must fit int32")
-    if not np.all(np.isfinite(a.data)):
-        raise ValueError("Matrix values must be finite float32 numbers")
+
+    assert min(m, n) >= 1
+    assert max(m, n, a.nnz) <= INT_MAX
+    assert np.all(np.isfinite(a.data))
+
     offsets = np.ascontiguousarray(a.indptr, dtype=np.int32)
     columns = np.ascontiguousarray(a.indices, dtype=np.int32)
     values = np.ascontiguousarray(a.data, dtype=np.float32)
@@ -57,31 +54,39 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
     samples = np.empty(repeat, dtype=np.float32)
 
     library = ct.CDLL(str(libpath))
-    try:
-        benchmark = library.spruce_benchmark_spmv
-    except AttributeError as error:
-        raise RuntimeError("Rebuild the library: python backends/cusparse/build.py") from error
+    benchmark = library.spruce_benchmark_spmv
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
         ct.c_int, ct.c_int, ct.c_int, ct.c_int64,
         ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p,
         ct.c_int, ct.c_int, ct.c_void_p,
     ]
+
     error = benchmark(
         device, m, n, a.nnz, offsets.ctypes.data, columns.ctypes.data,
         values.ctypes.data, x.ctypes.data, warmup, repeat, samples.ctypes.data,
     )
     if error:
         raise RuntimeError(error.decode())
+
     result = {
-        "operation": "spmv", "matrix": str(matrixfile.resolve()),
-        "shape": [m, n], "nnz": a.nnz, "device": device,
-        "seed": seed, "warmup": warmup, "repeat": repeat,
-        "timing": "cuda_events", "scope": "execution",
-        "median_ms": float(np.median(samples)), "mean_ms": float(np.mean(samples)),
-        "min_ms": float(np.min(samples)), "max_ms": float(np.max(samples)),
+        "operation": "spmv",
+        "matrix": str(matrixfile.resolve()),
+        "shape": [m, n],
+        "nnz": a.nnz,
+        "device": device,
+        "seed": seed,
+        "warmup": warmup,
+        "repeat": repeat,
+        "timing": "cuda_events",
+        "scope": "execution",
+        "median_ms": float(np.median(samples)),
+        "mean_ms": float(np.mean(samples)),
+        "min_ms": float(np.min(samples)),
+        "max_ms": float(np.max(samples)),
         "samples_ms": samples.tolist(),
     }
+
     print(f"SpMV: shape={a.shape}, nnz={a.nnz}")
     print(f"CUDA events: median={result['median_ms']:.6f} ms, "
           f"mean={result['mean_ms']:.6f} ms, min={result['min_ms']:.6f} ms "
@@ -98,18 +103,20 @@ def run(matrixfile, seed, repeat, libpath, device, warmup):
             writer.writeheader()
         for iteration, elapsed in enumerate(samples, start=1):
             writer.writerow({
-                "run_utc": run_utc, "operation": "spmv", "matrix": result["matrix"],
-                "rows": m, "cols": n, "nnz": a.nnz, "device": device,
-                "seed": seed, "warmup": warmup,
-                "iteration": iteration, "elapsed_ms": float(elapsed),
+                "run_utc": run_utc,
+                "operation": "spmv",
+                "matrix": result["matrix"],
+                "rows": m,
+                "cols": n,
+                "nnz": a.nnz,
+                "device": device,
+                "seed": seed,
+                "warmup": warmup,
+                "iteration": iteration,
+                "elapsed_ms": float(elapsed),
             })
     print(f"Recorded {repeat} executions: {output}")
-    return 0
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except (OSError, ValueError, RuntimeError) as error:
-        print(f"Error: {error}", file=sys.stderr)
-        sys.exit(1)
+    main()
