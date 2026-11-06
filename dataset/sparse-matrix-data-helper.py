@@ -22,6 +22,11 @@ MATRICES = [
         "filename": "bcsstk01.mtx",
         "archive_member": "bcsstk01/bcsstk01.mtx",
     },
+    {
+        "url": "https://www.cise.ufl.edu/research/sparse/MM/HB/bcsstk17.tar.gz",
+        "filename": "bcsstk17.mtx",
+        "archive_member": "bcsstk17/bcsstk17.mtx",
+    },
 ]
 
 

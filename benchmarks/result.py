@@ -53,8 +53,9 @@ class BenchmarkResult:
     def print_summary(self) -> None:
         median_ms = self.median_ms
         samples = self.repeat
-        print(f"{self.backend} {self.operation.upper()}: "
-              f"{median_ms=:.6f}, {samples=}")
+        details = [f"{name}={Path(info.path).name}" for name, info in self.inputs.items()]
+        details.append(f"{median_ms=:.6f}, {samples=}")
+        print(f"{self.backend} {self.operation.upper()}: {', '.join(details)}")
 
     def write_csv(self, path: str | Path) -> None:
         """Append one row per sample using a shared schema for A, B, and x."""
