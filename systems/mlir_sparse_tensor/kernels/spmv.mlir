@@ -4,7 +4,8 @@
 
 // y[i] += sum_j A[i,j] * x[j]. The caller initializes y to zero.
 func.func @spmv(%A: tensor<?x?xf32, #CSR>,
-                %x: tensor<?xf32>, %y: tensor<?xf32>) -> tensor<?xf32> {
+                %x: tensor<?xf32>, %y: tensor<?xf32>) -> tensor<?xf32>
+    attributes {llvm.emit_c_interface} {
   %result = linalg.generic {
     indexing_maps = [
       affine_map<(i,j) -> (i,j)>,
