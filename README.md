@@ -1,5 +1,20 @@
 # Artifact
 
+## System and Operation Support
+
+GPU operation support in this artifact:
+
+| System | SpMV | SDDMM | SpGEMM | MTTKRP |
+| --- | :---: | :---: | :---: | :---: |
+| cuSPARSE | ✅ | ✅ | ✅ | ❌ |
+| Nacho | ❌ | ❌ | ✅ | ❌ |
+| SparseTIR | ⏸️ | ⏸️ | ❌ | ⏸️ |
+| MLIR Sparse Tensor | ⏸️ | ❌ | ❌ | ⏸️ |
+
+- ✅ Supported and runnable through `run.py`.
+- ❌ Cannot run the operation with the current GPU implementation.
+- ⏸️ Supported, but `run.py` still needs to be implemented or completed.
+
 ## Submodules
 
 ```sh
