@@ -4,7 +4,7 @@ from pathlib import Path
 from statistics import mean, median
 
 
-_CSV_INPUT_NAMES = ("A", "B", "x")
+_CSV_INPUT_NAMES = ("A", "B", "x", "C")
 
 
 @dataclass
@@ -58,7 +58,7 @@ class BenchmarkResult:
         print(f"{self.backend} {self.operation.upper()}: {', '.join(details)}")
 
     def write_csv(self, path: str | Path) -> None:
-        """Append one row per sample using a shared schema for A, B, and x."""
+        """Append one row per sample using a shared schema for all inputs."""
         unknown_inputs = self.inputs.keys() - set(_CSV_INPUT_NAMES)
         if unknown_inputs:
             raise ValueError(f"Unsupported CSV input names: {sorted(unknown_inputs)}")
@@ -74,7 +74,9 @@ class BenchmarkResult:
             "timing": self.timing,
             "scope": self.scope,
         }
-        for name in _CSV_INPUT_NAMES:
+        # Preserve existing SpMV/SpGEMM CSV headers when adding SDDMM's C input.
+        input_names = _CSV_INPUT_NAMES if "C" in self.inputs else _CSV_INPUT_NAMES[:-1]
+        for name in input_names:
             prefix = name.lower()
             fieldnames.extend(f"{prefix}_{field}" for field in ("path", "rows", "cols", "nnz"))
             info = self.inputs.get(name)

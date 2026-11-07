@@ -25,7 +25,7 @@ void spmv(int m, int n, int64_t nnz, int *offsets, int *columns,
 // Caller allocates d (nnz elements); output uses the input CSR structure.
 void sddmm(int m, int n, int rank, int64_t nnz, int *offsets, int *columns,
            float *a, float *b, float *c, float *d,
-           cudaStream_t stream = nullptr);
+           cudaStream_t stream = nullptr, const Benchmark *benchmark = nullptr);
 
 // C = A (m x k) * B (k x n). Output references are host variables.
 // On success, caller owns the three output arrays and frees them with cudaFree.

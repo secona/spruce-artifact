@@ -5,17 +5,17 @@
 | SDDMM | CSR sampling matrix and output, row-major dense factors | `cusparseSDDMM` followed by multiplication by the sampling values |
 | MTTKRP | CSF tensor, dense factors and output | Unsupported: no direct cuSPARSE tensor operation |
 
-Build the SpMV benchmark library (CUDA Toolkit with cuSPARSE and a C++17
+Build the benchmark libraries (CUDA Toolkit with cuSPARSE and a C++17
 host compiler required):
 
 ```sh
 python -m systems.cusparse.build
 ```
 
-`build()` compiles and links `kernels/spmv.cu` with the benchmark bridge into
-`generated/cusparse/libcusparse_spmv.so`. Set `NVCC` to select the compiler.
+`build()` compiles and links each kernel with its benchmark bridge into
+`generated/cusparse/libcusparse_<operation>.so`. Set `NVCC` to select the compiler.
 Compilation does not require a GPU. Rebuild after changing native sources.
-The benchmark workflow currently supports SpMV only.
+The benchmark workflow supports SpMV, SDDMM, and SpGEMM.
 
 The C++ entry points are declared in `kernels.h` in namespace `spruce::cusparse`.
 All tensor arrays reside on the GPU and use float32 values and zero-based int32
@@ -40,23 +40,28 @@ and a working CUDA GPU. It loads the prebuilt library and benchmarks `y = A @ x`
 python -m systems.cusparse.build
 python -m systems.cusparse.run --operation spmv
 python -m systems.cusparse.run --operation spmv --warmup 10 --repeat 100
+python -m dataset.sparse-matrix-data-helper download
+python -m systems.cusparse.run --operation sddmm
 ```
 
 The Matrix Market input is converted to sorted CSR with float32 values and
 zero-based int32 indices. Symmetry is expanded and duplicates are summed.
-The dense vector uses reproducible random values (`--seed`, default 0).
+The dataset helper generates the dense vector and SDDMM factors using seed 1234.
+SDDMM factors are float32 arrays with shapes `(m, 32)` and `(n, 32)`.
 Select a GPU with `--device` (default 0).
 
 Handles, descriptors, workspace, and input uploads are prepared once. After
 warmup, each repetition records start and stop CUDA events around `cusparseSpMV`
 on the same stream, waits for the stop event, and obtains elapsed milliseconds.
 Setup, allocation, transfers, and warmup are outside the timed region.
+SDDMM likewise prepares descriptors, workspace, and preprocessing once, then
+times `cusparseSDDMM` and the sampling-value multiplication together.
 CUDA events measure elapsed stream time; host launch gaps can contribute to it.
 
 The runner prints median, mean, and minimum execution time. Each timed repetition
-is appended as a CSV row to `generated/cusparse/spmv.csv`; use `--output` to
-choose another file. Rows include a UTC run timestamp, matrix path and dimensions,
-nnz, device, seed, warmup count, iteration number (starting at 1), and `elapsed_ms`.
+is appended as a CSV row to `generated/cusparse/<operation>.csv`.
+Rows include a UTC run timestamp, input paths and dimensions,
+nnz, device, warmup count, iteration number (starting at 1), and `elapsed_ms`.
 Repeated benchmark invocations append to the same file with one header; warmup
 iterations are excluded.
 It performs no numerical verification and does not save the computed vector.

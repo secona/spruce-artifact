@@ -12,6 +12,7 @@ from urllib.request import urlopen
 
 MATRICES_DIR = Path("dataset")
 SEED = 1234
+SDDMM_RANK = 32
 
 # Add entries with a URL and an output filename ending in .mtx or .tns.
 # For tar archives, also specify the exact archive_member to extract.
@@ -103,6 +104,31 @@ def generate_vector(path):
     print(f"Generated: {destination}")
 
 
+def generate_factors(path):
+    """Save reproducible row-major float32 factors for weighted SDDMM."""
+    import numpy as np
+    from scipy.io import mminfo
+
+    rows, columns = mminfo(path)[:2]
+    rng = np.random.default_rng(SEED)
+    for name, size in (("B", rows), ("C", columns)):
+        destination = path.with_name(f"{path.stem}_{name}.npy")
+        factor = rng.random((size, SDDMM_RANK), dtype=np.float32)
+        if is_downloaded(destination):
+            existing = np.load(destination, allow_pickle=False)
+            if (existing.shape != factor.shape or existing.dtype != np.float32
+                    or not np.all(np.isfinite(existing))):
+                raise ValueError(f"Invalid SDDMM factor: {destination}")
+            print(f"Already generated: {destination.name}")
+            continue
+
+        with tempfile.TemporaryDirectory(prefix=".factor-", dir=MATRICES_DIR) as temp_dir:
+            output = Path(temp_dir) / destination.name
+            np.save(output, factor, allow_pickle=False)
+            output.replace(destination)
+        print(f"Generated: {destination}")
+
+
 def download():
     failed = False
     for matrix in MATRICES:
@@ -111,6 +137,7 @@ def download():
             path = matrix_path(matrix)
             if path.suffix == ".mtx":
                 generate_vector(path)
+                generate_factors(path)
         except (OSError, URLError, tarfile.TarError, EOFError, ValueError) as error:
             print(f"Failed to download {matrix['filename']}: {error}", file=sys.stderr)
             failed = True
@@ -140,6 +167,7 @@ def verify():
         paths = [path]
         if path.suffix == ".mtx":
             paths.append(path.with_name(f"{path.stem}_x.npy"))
+            paths.extend(path.with_name(f"{path.stem}_{name}.npy") for name in ("B", "C"))
         for candidate in paths:
             if is_downloaded(candidate):
                 print(f"OK: {candidate.name}")
@@ -147,7 +175,7 @@ def verify():
                 print(f"Missing or empty: {candidate.name}")
                 missing = True
     if not missing:
-        print("All matrices and input vectors are available.")
+        print("All matrices, input vectors, and dense factors are available.")
     return int(missing)
 
 

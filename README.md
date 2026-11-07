@@ -19,11 +19,15 @@ Run Python programs as modules from the repository root:
 ```sh
 python -m systems.cusparse.build
 python -m systems.cusparse.run --operation spmv
+python -m systems.cusparse.run --operation sddmm
 python -m benchmarks.plot
 python -m dataset.sparse-matrix-data-helper download
 ```
 
 Source, dataset, and generated output paths are relative to the repository root.
+Run the dataset downloader before SDDMM to generate its reproducible float32
+dense factors (rank 32). SDDMM records CUDA-event samples, including the sampling
+value multiplication, in `generated/cusparse/sddmm.csv`.
 `./build_deps.sh sparsetir` applies `patches/sparsetir-numpy-2.patch` directly
 to the SparseTIR submodule before building, skipping it if already applied.
 The patch removes the obsolete `np.float_` alias; `np.float64` is already mapped.
