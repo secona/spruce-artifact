@@ -1,45 +1,15 @@
-import argparse
 import os
 import shlex
 import subprocess
 from pathlib import Path
+from benchmarks.args import parse_build_args
 
 
-def get_nacho_compiler_exe():
-    backend_dir = Path("systems/nacho")
-    compiler = backend_dir / "compiler"
-    if not compiler.is_file():
-        print("--- Building Nacho compiler")
-        nacho_dir = Path("third_party/nacho")
-        build_dir = nacho_dir / "build"
-        library = build_dir / "libnacho_library.a"
-        if not library.is_file():
-            subprocess.run(
-                ["cmake", "-S", str(nacho_dir), "-B", str(build_dir)], check=True
-            )
-            subprocess.run(
-                ["cmake", "--build", str(build_dir), "--target", "nacho_library"],
-                check=True,
-            )
-        subprocess.run(
-            [
-                *shlex.split(os.environ.get("CXX", "c++")),
-                "-O2",
-                "-std=c++20",
-                "-I", str(nacho_dir / "include"),
-                str(backend_dir / "compiler.cpp"),
-                str(library),
-                "-o", str(compiler),
-            ],
-            check=True,
-        )
-    return compiler
+OPERATIONS = ("spgemm",)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=("spgemm",))
-    parser.add_argument("--gpu-arch", default="sm_86")
-    args = parser.parse_args()
+
+def main():
+    args = parse_build_args(OPERATIONS)
 
     compiler = get_nacho_compiler_exe()
     output_dir = Path("generated/nacho")
@@ -72,3 +42,38 @@ if __name__ == "__main__":
         check=True
     )
     print(library)
+
+
+def get_nacho_compiler_exe():
+    backend_dir = Path("systems/nacho")
+    compiler = backend_dir / "compiler"
+    if not compiler.is_file():
+        print("--- Building Nacho compiler")
+        nacho_dir = Path("third_party/nacho")
+        build_dir = nacho_dir / "build"
+        library = build_dir / "libnacho_library.a"
+        if not library.is_file():
+            subprocess.run(
+                ["cmake", "-S", str(nacho_dir), "-B", str(build_dir)], check=True
+            )
+            subprocess.run(
+                ["cmake", "--build", str(build_dir), "--target", "nacho_library"],
+                check=True,
+            )
+        subprocess.run(
+            [
+                *shlex.split(os.environ.get("CXX", "c++")),
+                "-O2",
+                "-std=c++20",
+                "-I", str(nacho_dir / "include"),
+                str(backend_dir / "compiler.cpp"),
+                str(library),
+                "-o", str(compiler),
+            ],
+            check=True,
+        )
+    return compiler
+
+
+if __name__ == "__main__":
+    main()

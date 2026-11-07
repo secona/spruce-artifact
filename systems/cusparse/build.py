@@ -1,11 +1,18 @@
-import argparse
 import os
 from pathlib import Path
 import shlex
 import subprocess
+from benchmarks.args import parse_build_args
 
 
 OPERATIONS = ("spmv", "sddmm", "spgemm")
+
+
+def main():
+    args = parse_build_args(OPERATIONS)
+
+    for operation in (args.operation,) if args.operation else OPERATIONS:
+        print(build(operation, args.gpu_arch))
 
 
 def build(operation, gpu_arch):
@@ -39,10 +46,4 @@ def build(operation, gpu_arch):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=OPERATIONS)
-    parser.add_argument("--gpu-arch", default="sm_86")
-    args = parser.parse_args()
-
-    for operation in (args.operation,) if args.operation else OPERATIONS:
-        print(build(operation, args.gpu_arch))
+    main()

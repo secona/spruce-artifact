@@ -1,25 +1,17 @@
-import argparse
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
 from scipy import io, sparse
 from benchmarks.result import BenchmarkResult, InputInfo
+from benchmarks.args import parse_run_args
 
 INT_MAX = 2**31 - 1
+OPERATIONS = ("spmv", "sddmm", "spgemm")
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=("spmv", "sddmm", "spgemm"))
-    parser.add_argument("--warmup", type=int, default=10)
-    parser.add_argument("--repeat", type=int, default=100)
-    parser.add_argument("--device", type=int, default=0)
-    args = parser.parse_args()
-
-    assert 0 <= args.warmup <= INT_MAX
-    assert 1 <= args.repeat <= INT_MAX
-    assert 0 <= args.device <= INT_MAX
+    args = parse_run_args(OPERATIONS)
 
     if args.operation is None or args.operation == "spmv":
         from benchmarks.spmv import config

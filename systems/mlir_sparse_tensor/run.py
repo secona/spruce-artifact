@@ -1,14 +1,17 @@
 """Benchmark MLIR SparseTensor's GPU SpMV pipeline on configured inputs."""
 
-import argparse
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
+from benchmarks.args import parse_run_args
 from benchmarks.inputs import check_output, load_csr, load_dense
 from benchmarks.result import BenchmarkResult, InputInfo
+
+
+OPERATIONS = ("spmv",)
 
 
 def run_spmv(A_path, x_path, repeat, device, warmup):
@@ -66,14 +69,8 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operation", choices=("spmv",))
-    parser.add_argument("--warmup", type=int, default=10)
-    parser.add_argument("--repeat", type=int, default=100)
-    parser.add_argument("--device", type=int, default=0)
-    args = parser.parse_args()
-    if not 0 <= args.warmup <= 2**31 - 1 or not 1 <= args.repeat <= 2**31 - 1 or not 0 <= args.device <= 2**31 - 1:
-        parser.error("warmup/device must be nonnegative and repeat positive; all must fit int32")
+    args = parse_run_args(OPERATIONS)
+
     from benchmarks.spmv import config
     for A_filename, x_filename in config.CASES:
         run_spmv(Path("dataset") / A_filename, Path("dataset") / x_filename,

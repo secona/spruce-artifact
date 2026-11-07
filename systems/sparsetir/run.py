@@ -1,14 +1,17 @@
 """Run configured SparseTIR benchmarks, specializing kernels to each input."""
 
-import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
+from benchmarks.args import parse_run_args
 from benchmarks.inputs import check_output, load_csr, load_dense
 from benchmarks.result import BenchmarkResult, InputInfo
 from .build import compile_kernel
+
+
+OPERATIONS = ("spmv", "sddmm")
 
 
 def run(operation, paths, repeat, device, warmup, gpu_arch):
@@ -67,23 +70,18 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operation", choices=("spmv", "sddmm"))
-    parser.add_argument("--warmup", type=int, default=10)
-    parser.add_argument("--repeat", type=int, default=100)
-    parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--gpu-arch", default="sm_86")
-    args = parser.parse_args()
-    if args.warmup < 1 or args.repeat < 1 or args.device < 0:
-        parser.error("warmup/repeat must be positive and device nonnegative")
-    for operation in (args.operation,) if args.operation else ("spmv", "sddmm"):
+    args = parse_run_args(OPERATIONS)
+    assert args.warmup >= 1
+    gpu_arch = "sm_86"
+
+    for operation in (args.operation,) if args.operation else OPERATIONS:
         if operation == "spmv":
             from benchmarks.spmv import config
         else:
             from benchmarks.sddmm import config
         for filenames in config.CASES:
             paths = [Path("dataset") / name for name in filenames]
-            run(operation, paths, args.repeat, args.device, args.warmup, args.gpu_arch)
+            run(operation, paths, args.repeat, args.device, args.warmup, gpu_arch)
 
 
 if __name__ == "__main__":

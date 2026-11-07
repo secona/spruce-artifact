@@ -1,11 +1,21 @@
-import argparse
 import os
 import shlex
 import subprocess
 from pathlib import Path
+from benchmarks.args import parse_build_args
 
 
 OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
+
+
+def main():
+    args = parse_build_args(OPERATIONS)
+
+    llvm_build_dir = os.getenv("LLVM_DIR")
+    assert llvm_build_dir
+
+    for operation in (args.operation,) if args.operation else OPERATIONS:
+        print("[Built]", build(operation, Path(llvm_build_dir), args.gpu_arch))
 
 
 def build(operation, llvm_build_dir, gpu_arch):
@@ -83,13 +93,4 @@ def build(operation, llvm_build_dir, gpu_arch):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=OPERATIONS)
-    parser.add_argument("--gpu-arch", default="sm_86")
-    args = parser.parse_args()
-
-    llvm_build_dir = os.getenv("LLVM_DIR")
-    assert llvm_build_dir
-
-    for operation in (args.operation,) if args.operation else OPERATIONS:
-        print("[Built]", build(operation, Path(llvm_build_dir), args.gpu_arch))
+    main()

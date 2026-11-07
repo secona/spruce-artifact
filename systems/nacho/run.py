@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Benchmark Nacho SpGEMM with CUDA events and record every execution in CSV."""
 
-import argparse
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
 
+from benchmarks.args import parse_run_args
 from benchmarks.result import BenchmarkResult, InputInfo
+
+
+OPERATIONS = ("spgemm",)
 
 
 class HostCsr(ct.Structure):
@@ -40,31 +42,17 @@ def load_matrix(path, np, io, sparse):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operation", choices=("spgemm",))
-    # Defaults from third_party/nacho/benchmarks/config.py.
-    parser.add_argument("--warmup", type=int, default=5)
-    parser.add_argument("--repeat", type=int, default=14)
-    parser.add_argument("--blocks", type=int, default=256)
-    parser.add_argument("--threads-per-block", type=int, default=256)
-    parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--output", type=Path,
-                        default=Path("generated/nacho") / "spgemm.csv",
-                        help="Append one CSV row per timed execution (default: generated/nacho/spgemm.csv)")
-    args = parser.parse_args()
-    int_max = 2**31 - 1
-    if not 0 <= args.warmup <= int_max or not 1 <= args.repeat <= int_max or not 0 <= args.device <= int_max:
-        parser.error("warmup/device must be nonnegative and repeat positive; all must fit int32")
-    if args.blocks < 1 or args.threads_per_block < 1 or args.blocks * args.threads_per_block >= int_max:
-        parser.error("blocks and threads-per-block must be positive; their product must be less than int32 max")
+    args = parse_run_args(OPERATIONS)
+    blocks = 256
+    threads_per_block = 256
+    output_path = Path("generated/nacho") / "spgemm.csv"
 
     from benchmarks.spgemm import config
     for A_filename, B_filename in config.CASES:
         A_path = Path("dataset") / A_filename
         B_path = Path("dataset") / B_filename
         run_spgemm(A_path, B_path, args.repeat, args.device, args.warmup,
-                   args.blocks, args.threads_per_block, args.output)
-    return 0
+                   blocks, threads_per_block, output_path)
 
 
 def run_spgemm(A_path, B_path, repeat, device, warmup, blocks, threads_per_block, output_path):
@@ -118,8 +106,4 @@ def run_spgemm(A_path, B_path, repeat, device, warmup, blocks, threads_per_block
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except (OSError, ValueError, RuntimeError) as error:
-        print(f"Error: {error}", file=sys.stderr)
-        sys.exit(1)
+    main()

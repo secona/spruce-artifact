@@ -1,5 +1,15 @@
-import argparse
 from pathlib import Path
+from benchmarks.args import parse_build_args
+
+
+OPERATIONS = ("spmv", "sddmm", "mttkrp")
+
+
+def main():
+    args = parse_build_args(OPERATIONS)
+
+    for operation in (args.operation,) if args.operation else OPERATIONS:
+        print(build(operation, args.gpu_arch))
 
 
 def compile_kernel(operation, gpu_arch, shape):
@@ -53,10 +63,4 @@ def build(operation, gpu_arch):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", choices=("spmv", "sddmm", "mttkrp"))
-    parser.add_argument("--gpu-arch", default="sm_86")
-    args = parser.parse_args()
-
-    for operation in (args.operation,) if args.operation else ("spmv", "sddmm", "mttkrp"):
-        print(build(operation, args.gpu_arch))
+    main()
