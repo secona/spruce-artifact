@@ -58,7 +58,7 @@ class BenchmarkResult:
         print(f"{self.backend} {self.operation.upper()}: {', '.join(details)}")
 
     def write_csv(self, path: str | Path) -> None:
-        """Append one row per sample using a shared schema for all inputs."""
+        """Write samples to a new CSV, adding a numbered suffix if needed."""
         unknown_inputs = self.inputs.keys() - set(_CSV_INPUT_NAMES)
         if unknown_inputs:
             raise ValueError(f"Unsupported CSV input names: {sorted(unknown_inputs)}")
@@ -94,17 +94,18 @@ class BenchmarkResult:
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a+", newline="", encoding="utf-8") as output:
-            output.seek(0)
-            header = next(csv.reader(output), None)
-            if header is not None and header != fieldnames:
-                raise ValueError(
-                    f"Incompatible CSV header in {path}; move or rename the existing file "
-                    "before writing results with the new schema"
-                )
-            output.seek(0, 2)
+        candidate = path
+        suffix = 0
+        while True:
+            try:
+                output = candidate.open("x", newline="", encoding="utf-8")
+                break
+            except FileExistsError:
+                suffix += 1
+                candidate = path.with_name(f"{path.stem}_{suffix}{path.suffix}")
+
+        with output:
             writer = csv.DictWriter(output, fieldnames=fieldnames)
-            if header is None:
-                writer.writeheader()
+            writer.writeheader()
             for iteration, elapsed in enumerate(self.samples_ms, start=1):
                 writer.writerow({**row, "iteration": iteration, "elapsed_ms": float(elapsed)})
