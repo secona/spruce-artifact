@@ -1,8 +1,6 @@
 # Artifact
 
-## System and Operation Support
-
-GPU operation support in this artifact:
+## GPU Operation Support
 
 | System | SpMV | SDDMM | SpGEMM | MTTKRP |
 | --- | :---: | :---: | :---: | :---: |
@@ -11,49 +9,46 @@ GPU operation support in this artifact:
 | SparseTIR | ⏸️ | ⏸️ | ❌ | ⏸️ |
 | MLIR Sparse Tensor | ⏸️ | ❌ | ❌ | ⏸️ |
 
-- ✅ Supported and runnable through `run.py`.
-- ❌ Cannot run the operation with the current GPU implementation.
-- ⏸️ Supported, but `run.py` still needs to be implemented or completed.
-
-## Submodules
+## Setup
 
 ```sh
 git submodule update --init --recursive --depth=1
+python -m dataset.sparse-matrix-data-helper download
 ```
 
-## Building
-
-These are the environment variables required to build the artifact.
-
-- `LLVM_14_BUILD_DIR` points to the `build` directory of an LLVM 14 checkout.
-
-## Running Python Programs
-
-Run Python programs as modules from the repository root:
+## cuSPARSE
 
 ```sh
 python -m systems.cusparse.build
 python -m systems.cusparse.run --operation spmv
 python -m systems.cusparse.run --operation sddmm
-python -m benchmarks.plot
-python -m dataset.sparse-matrix-data-helper download
+python -m systems.cusparse.run --operation spgemm
 ```
 
-Source, dataset, and generated output paths are relative to the repository root.
-Run the dataset downloader before SDDMM to generate its reproducible float32
-dense factors (rank 32). SDDMM records CUDA-event samples, including the sampling
-value multiplication, in `generated/cusparse/sddmm.csv`.
-`./build_deps.sh sparsetir` applies `patches/sparsetir-numpy-2.patch` directly
-to the SparseTIR submodule before building, skipping it if already applied.
-The patch removes the obsolete `np.float_` alias; `np.float64` is already mapped.
-No fork or submodule commit is needed. To apply it manually from the repository root:
+## Nacho
 
 ```sh
-git -C third_party/sparsetir apply ../../patches/sparsetir-numpy-2.patch
+python -m systems.nacho.build
+python -m systems.nacho.run --matrix dataset/bcsstk01.mtx
 ```
 
-For SparseTIR, make the checkout's Python package available when running its builder:
+## SparseTIR
 
 ```sh
+export LLVM_14_BUILD_DIR=/path/to/llvm14/build/dir
+./build_deps.sh sparsetir
 PYTHONPATH=third_party/sparsetir/python python -m systems.sparsetir.build
+```
+
+## MLIR Sparse Tensor
+
+```sh
+export LLVM_DIR=/path/to/llvm/build
+python -m systems.mlir_sparse_tensor.build
+```
+
+## Plot Results
+
+```sh
+python -m benchmarks.plot
 ```
