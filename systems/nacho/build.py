@@ -38,6 +38,7 @@ def get_nacho_compiler_exe():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--operation", choices=("spgemm",))
+    parser.add_argument("--gpu-arch", default="sm_86")
     args = parser.parse_args()
 
     compiler = get_nacho_compiler_exe()
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     subprocess.run(
         [
             *shlex.split(os.environ.get("NVCC", "nvcc")),
+            f"-arch={args.gpu_arch}",
             "-O3",
             "-std=c++17",
             "--expt-extended-lambda",

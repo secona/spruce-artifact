@@ -29,7 +29,7 @@ python -m systems.cusparse.run --operation spgemm
 
 ```sh
 python -m systems.nacho.build
-python -m systems.nacho.run --matrix dataset/bcsstk01.mtx
+python -m systems.nacho.run --operation spgemm
 ```
 
 ## SparseTIR
