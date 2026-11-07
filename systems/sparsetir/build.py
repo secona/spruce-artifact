@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 
-def build(operation, gpu_arch):
+def compile_kernel(operation, gpu_arch, shape):
     import tvm
     from tvm.sparse import lower_sparse_buffer, lower_sparse_iter
 
@@ -11,11 +11,11 @@ def build(operation, gpu_arch):
     from .kernels.spmv import spmv
 
     if operation == "spmv":
-        kernel = spmv(1024, 1024, 4096)
+        kernel = spmv(*shape)
     elif operation == "sddmm":
-        kernel = sddmm(1024, 1024, 32, 4096)
+        kernel = sddmm(*shape)
     elif operation == "mttkrp":
-        kernel = mttkrp(1024, 1024, 1024, 32, 4096, 16384)
+        kernel = mttkrp(*shape)
     else:
         raise ValueError(f"Unknown operation: {operation}")
 
@@ -38,6 +38,17 @@ def build(operation, gpu_arch):
     (output_dir / f"{operation}.tir.py").write_text(mod.script())
     (output_dir / f"{operation}.cu").write_text(cuda_source)
 
+    return compiled
+
+
+def build(operation, gpu_arch):
+    shapes = {
+        "spmv": (1024, 1024, 4096),
+        "sddmm": (1024, 1024, 32, 4096),
+        "mttkrp": (1024, 1024, 1024, 32, 4096, 16384),
+    }
+    compile_kernel(operation, gpu_arch, shapes[operation])
+    output_dir = Path("generated/sparsetir")
     return output_dir / f"{operation}.cu"
 
 
