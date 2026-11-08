@@ -15,12 +15,6 @@ struct HostCsr {
 };
 
 namespace {
-struct Buffer : Resource<void *, cudaFree> {
-  explicit Buffer(size_t bytes) {
-    CHECK_CUDA(cudaMalloc(&value, bytes ? bytes : 1));
-  }
-};
-
 struct DeviceCsr {
   Buffer offsets, columns, values;
   explicit DeviceCsr(const HostCsr &a)
