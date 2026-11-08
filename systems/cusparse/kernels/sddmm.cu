@@ -1,4 +1,4 @@
-#include "common.cuh"
+#include "common.h"
 
 namespace {
 __global__ void weight(int64_t nnz, const float *a, float *d) {

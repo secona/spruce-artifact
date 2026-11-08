@@ -1,4 +1,4 @@
-#include "common.cuh"
+#include "common.h"
 
 void spmv(int m, int n, int64_t nnz, int *offsets, int *columns, float *values,
           float *x, float *y, cudaStream_t stream) {

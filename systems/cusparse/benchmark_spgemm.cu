@@ -1,5 +1,6 @@
 // C ABI for the SpGEMM benchmark runner. Host arrays are copied before timing.
-#include "common.cuh"
+#include "kernels/common.h"
+#include "kernels/kernels.h"
 #include <string>
 
 extern "C" const char *spruce_benchmark_spgemm(

@@ -1,4 +1,4 @@
-#include "common.cuh"
+#include "common.h"
 #include <limits>
 
 void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,

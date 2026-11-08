@@ -31,8 +31,6 @@ def build(operation, gpu_arch):
             "-std=c++17",
             "-shared",
             "-Xcompiler=-fPIC",
-            "-I",
-            str(backend_dir / "kernels"),
             str(backend_dir / f"benchmark_{operation}.cu"),
             str(backend_dir / "kernels" / f"{operation}.cu"),
             "-lcusparse",
