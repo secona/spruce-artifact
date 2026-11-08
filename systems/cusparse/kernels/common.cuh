@@ -42,23 +42,11 @@ void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
 
 namespace spruce::cusparse::detail {
 
-template <typename T, auto destroy> struct Resource {
-  T value = nullptr;
-  Resource() = default;
-  Resource(const Resource &) = delete;
-  Resource &operator=(const Resource &) = delete;
-  ~Resource() {
-    if (value)
-      destroy(value);
-  }
-};
-
 using Handle = Resource<cusparseHandle_t, cusparseDestroy>;
 using SparseMatrix = Resource<cusparseSpMatDescr_t, cusparseDestroySpMat>;
 using DenseMatrix = Resource<cusparseDnMatDescr_t, cusparseDestroyDnMat>;
 using DenseVector = Resource<cusparseDnVecDescr_t, cusparseDestroyDnVec>;
 using Product = Resource<cusparseSpGEMMDescr_t, cusparseSpGEMM_destroyDescr>;
-using Event = Resource<cudaEvent_t, cudaEventDestroy>;
 
 template <typename Function>
 void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
@@ -69,7 +57,7 @@ void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
   if (benchmark->warmup < 0 || benchmark->repetitions < 1 ||
       !benchmark->samples)
     throw std::invalid_argument("Invalid benchmark configuration");
-  Event start, stop;
+  CudaEvent start, stop;
   CHECK_CUDA(cudaEventCreate(&start.value));
   CHECK_CUDA(cudaEventCreate(&stop.value));
   for (int i = 0; i < benchmark->warmup; ++i)

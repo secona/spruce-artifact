@@ -19,14 +19,6 @@ template <typename T> StridedMemRefType<T, 1> view(T *data, int64_t size) {
   return {data, data, 0, {size}, {1}};
 }
 
-struct Event {
-  cudaEvent_t value = nullptr;
-  Event() { CHECK_CUDA(cudaEventCreate(&value)); }
-  Event(const Event &) = delete;
-  Event &operator=(const Event &) = delete;
-  ~Event() { cudaEventDestroy(value); }
-};
-
 extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
                                              int64_t nnz, uint64_t *offsets,
                                              uint64_t *columns, float *values,
@@ -56,7 +48,7 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
       _mlir_ciface_spmv(&result, a.get(), &input, &y);
       CHECK_CUDA(cudaDeviceSynchronize());
     };
-    Event start, stop;
+    CudaEvent start, stop;
     for (int i = 0; i < warmup; ++i) {
       std::fill(output, output + m, 0.0f);
       execute();

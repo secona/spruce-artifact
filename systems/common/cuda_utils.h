@@ -20,3 +20,16 @@
       throw std::runtime_error(cusparseGetErrorString(status));                \
     }                                                                          \
   }
+
+template <typename T, auto destroy> struct Resource {
+  T value = nullptr;
+  Resource() = default;
+  Resource(const Resource &) = delete;
+  Resource &operator=(const Resource &) = delete;
+  ~Resource() {
+    if (value)
+      destroy(value);
+  }
+};
+
+using CudaEvent = Resource<cudaEvent_t, cudaEventDestroy>;

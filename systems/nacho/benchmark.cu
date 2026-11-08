@@ -14,17 +14,6 @@ struct HostCsr {
 };
 
 namespace {
-template <typename T, auto destroy> struct Resource {
-  T value = nullptr;
-  Resource() = default;
-  Resource(const Resource &) = delete;
-  Resource &operator=(const Resource &) = delete;
-  ~Resource() {
-    if (value)
-      destroy(value);
-  }
-};
-
 struct Buffer : Resource<void *, cudaFree> {
   explicit Buffer(size_t bytes) {
     CHECK_CUDA(cudaMalloc(&value, bytes ? bytes : 1));
