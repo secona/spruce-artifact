@@ -1,12 +1,13 @@
 #CSF = #sparse_tensor.encoding<{
-  map = (i, j, k) -> (i : compressed, j : compressed, k : compressed)
+  map = (i, j, k) -> (i : dense, j : compressed, k : compressed)
 }>
 
 // D[i,r] += sum_j sum_k A[i,j,k] * B[j,r] * C[k,r].
 // The caller initializes the dense output D to zero.
 func.func @mttkrp(%A: tensor<?x?x?xf32, #CSF>,
                   %B: tensor<?x?xf32>, %C: tensor<?x?xf32>,
-                  %D: tensor<?x?xf32>) -> tensor<?x?xf32> {
+                  %D: tensor<?x?xf32>) -> tensor<?x?xf32>
+    attributes {llvm.emit_c_interface} {
   %result = linalg.generic {
     indexing_maps = [
       affine_map<(i,r,j,k) -> (i,j,k)>,

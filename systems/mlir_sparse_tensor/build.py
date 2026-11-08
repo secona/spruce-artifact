@@ -5,8 +5,7 @@ from pathlib import Path
 from benchmarks.args import parse_build_args
 
 
-# OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
-OPERATIONS = ("spmv",)
+OPERATIONS = ("spmv", "mttkrp")
 
 
 def main():
@@ -20,6 +19,8 @@ def main():
 
 
 def build(operation, llvm_build_dir, gpu_arch):
+  assert operation in OPERATIONS
+
   cuda_root = Path(os.environ.get("CUDA_PATH", "/usr/local/cuda"))
 
   backend_dir = Path("systems/mlir_sparse_tensor")
@@ -36,14 +37,13 @@ def build(operation, llvm_build_dir, gpu_arch):
     include_dirs.append(Path(mlir_include_dir))
 
   runtime_dir = (llvm_build_dir / "lib").resolve()
-  library = generated_dir / "libmlir_sparse_tensor_spmv.so"
+  library = generated_dir / f"libmlir_sparse_tensor_{operation}.so"
 
   commands = [
     (
       [
         str(mlir_opt),
         str(kernels_dir / f"{operation}.mlir"),
-        # f"--pass-pipeline={GPU_PIPELINE}",
         f"--sparsifier=gpu-triple=nvptx64-nvidia-cuda gpu-chip={gpu_arch} enable-gpu-libgen=false parallelization-strategy=dense-outer-loop",
         "-o",
         str(generated_dir / f"{operation}.mlir"),
@@ -82,8 +82,8 @@ def build(operation, llvm_build_dir, gpu_arch):
         *[flag for path in include_dirs for flag in ("-I", str(path))],
         "-I",
         str(cuda_root / "include"),
-        str(backend_dir / "benchmark_spmv.cpp"),
-        str(generated_dir / "spmv.o"),
+        str(backend_dir / f"benchmark_{operation}.cpp"),
+        str(generated_dir / f"{operation}.o"),
         "-L",
         str(runtime_dir),
         f"-Wl,-rpath,{runtime_dir}",

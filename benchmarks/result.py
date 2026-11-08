@@ -78,18 +78,23 @@ class BenchmarkResult:
         input_names = _CSV_INPUT_NAMES if "C" in self.inputs else _CSV_INPUT_NAMES[:-1]
         for name in input_names:
             prefix = name.lower()
-            fieldnames.extend(f"{prefix}_{field}" for field in ("path", "rows", "cols", "nnz"))
             info = self.inputs.get(name)
+            fields = ["path", "rows", "cols", "nnz"]
+            if info is not None:
+                if len(info.shape) == 3:
+                    fields.insert(3, "depth")
+            fieldnames.extend(f"{prefix}_{field}" for field in fields)
             if info is None:
                 continue
-            if len(info.shape) not in (1, 2):
-                raise ValueError(f"CSV inputs must be vectors or matrices: {name} has shape {info.shape}")
+            assert len(info.shape) in (1, 2, 3)
             row.update({
                 f"{prefix}_path": info.path,
                 f"{prefix}_rows": info.shape[0],
-                f"{prefix}_cols": info.shape[1] if len(info.shape) == 2 else None,
+                f"{prefix}_cols": info.shape[1] if len(info.shape) >= 2 else None,
                 f"{prefix}_nnz": info.nnz,
             })
+            if len(info.shape) == 3:
+                row[f"{prefix}_depth"] = info.shape[2]
         fieldnames.extend(("device", "warmup", "repeat", "timing", "scope", "iteration", "elapsed_ms"))
 
         path = Path(path)

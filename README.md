@@ -5,9 +5,9 @@
 | System | SpMV | SDDMM | SpGEMM | MTTKRP |
 | --- | :---: | :---: | :---: | :---: |
 | cuSPARSE | ✅ | ✅ | ✅ | ❌ |
-| Nacho | ❌ | ❌ | ✅ | ❌ |
-| SparseTIR | ✅ | ✅ | ❌ | ⏸️ |
-| MLIR Sparse Tensor | ✅ | ❌ | ❌ | ⏸️ |
+| MLIR Sparse Tensor | ✅ | ❌ | ❌ | ✅ |
+<!-- | Nacho | ❌ | ❌ | ✅ | ❌ | -->
+<!-- | SparseTIR | ✅ | ✅ | ❌ | ⏸️ | -->
 
 ## Setup
 
@@ -35,6 +35,7 @@ python -m systems.cusparse.run --operation spgemm
 export LLVM_DIR=/path/to/llvm/install
 python -m systems.mlir_sparse_tensor.build
 python -m systems.mlir_sparse_tensor.run --operation spmv
+python -m systems.mlir_sparse_tensor.run --operation mttkrp
 ```
 
 The LLVM installation must provide the MLIR headers, `libmlir_c_runner_utils`,
