@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cuda_runtime.h>
 
 struct Benchmark {
@@ -17,9 +18,9 @@ void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark,
     return;
   }
 
-  if (benchmark->warmup < 0 || benchmark->repetitions < 1 ||
-      !benchmark->samples)
-    throw std::invalid_argument("Invalid benchmark configuration");
+  assert(benchmark->warmup >= 0);
+  assert(benchmark->repetitions >= 1);
+  assert(benchmark->samples);
 
   CudaEvent start, stop;
 

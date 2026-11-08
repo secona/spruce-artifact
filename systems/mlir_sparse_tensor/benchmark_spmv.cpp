@@ -2,6 +2,7 @@
 // interface.
 #include "mlir/ExecutionEngine/SparseTensorRuntime.h"
 #include <algorithm>
+#include <cassert>
 #include <cuda_runtime_api.h>
 #include <memory>
 #include <stdexcept>
@@ -28,8 +29,9 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
                                              double *samples, float *output) {
   static thread_local std::string error;
   try {
-    if (warmup < 0 || repeat < 1 || !samples)
-      throw std::invalid_argument("Invalid benchmark configuration");
+    assert(warmup >= 0);
+    assert(repeat >= 1);
+    assert(samples);
     CHECK_CUDA(cudaSetDevice(device));
     mgpuSetDefaultDevice(device);
     uint64_t sizes[] = {uint64_t(m), uint64_t(n)}, mapping[] = {0, 1};

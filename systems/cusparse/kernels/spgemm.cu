@@ -1,4 +1,5 @@
 #include "common.h"
+#include <cassert>
 #include <limits>
 
 void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
@@ -45,8 +46,7 @@ void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
   CHECK_CUSPARSE(
       cusparseSpMatGetSize(c.value, &result_rows, &result_cols, &count));
 
-  if (count > std::numeric_limits<int>::max())
-    throw std::overflow_error("SpGEMM output exceeds int32 CSR offsets");
+  assert(count <= std::numeric_limits<int>::max());
 
   Buffer columns(size_t(count) * sizeof(int));
   Buffer values(size_t(count) * sizeof(float));

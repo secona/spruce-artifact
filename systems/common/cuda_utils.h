@@ -1,24 +1,19 @@
 #pragma once
 
+#include <cassert>
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
 #define CHECK_CUDA(func)                                                       \
   {                                                                            \
     cudaError_t status = (func);                                               \
-    if (status != cudaSuccess) {                                               \
-      printf("cuda error\n");                                                  \
-      throw std::runtime_error(cudaGetErrorString(status));                    \
-    }                                                                          \
+    assert(status == cudaSuccess);                                            \
   }
 
 #define CHECK_CUSPARSE(func)                                                   \
   {                                                                            \
     cusparseStatus_t status = (func);                                          \
-    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-      printf("cusparse error\n");                                              \
-      throw std::runtime_error(cusparseGetErrorString(status));                \
-    }                                                                          \
+    assert(status == CUSPARSE_STATUS_SUCCESS);                                 \
   }
 
 template <typename T, auto destroy> struct Resource {

@@ -1,5 +1,6 @@
 // The same generated entry point used by Nacho's gpu_spgemm_f32 binding.
 #include "spgemm_gpu.h"
+#include <cassert>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -60,20 +61,27 @@ extern "C" const char *spruce_benchmark_spgemm(int device, const HostCsr *a,
                                                int repeat, float *samples) {
   static thread_local std::string error;
   try {
-    if (!a || !b || !samples || a->rows < 1 || a->cols < 1 || b->cols < 1 ||
-        a->cols != b->rows || a->nnz < 0 || b->nnz < 0 ||
-        a->nnz > std::numeric_limits<int32_t>::max() ||
-        b->nnz > std::numeric_limits<int32_t>::max() || warmup < 0 ||
-        repeat < 1 || blocks < 1 || threads < 1 ||
-        int64_t(blocks) * threads >= std::numeric_limits<int32_t>::max())
-      throw std::invalid_argument(
-          "Invalid SpGEMM inputs or benchmark configuration");
+    assert(a);
+    assert(b);
+    assert(samples);
+    assert(a->rows >= 1);
+    assert(a->cols >= 1);
+    assert(b->cols >= 1);
+    assert(a->cols == b->rows);
+    assert(a->nnz >= 0);
+    assert(b->nnz >= 0);
+    assert(a->nnz <= std::numeric_limits<int32_t>::max());
+    assert(b->nnz <= std::numeric_limits<int32_t>::max());
+    assert(warmup >= 0);
+    assert(repeat >= 1);
+    assert(blocks >= 1);
+    assert(threads >= 1);
+    assert(int64_t(blocks) * threads < std::numeric_limits<int32_t>::max());
     CHECK_CUDA(cudaSetDevice(device));
     cudaDeviceProp properties;
     CHECK_CUDA(cudaGetDeviceProperties(&properties, device));
-    if (threads > properties.maxThreadsPerBlock ||
-        blocks > properties.maxGridSize[0])
-      throw std::invalid_argument("Launch geometry exceeds device limits");
+    assert(threads <= properties.maxThreadsPerBlock);
+    assert(blocks <= properties.maxGridSize[0]);
     DeviceCsr da(*a), db(*b);
     spgemm::a_tensor_format<int32_t, float> input_a{
         a->rows,
