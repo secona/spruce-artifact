@@ -5,7 +5,8 @@ from pathlib import Path
 from benchmarks.args import parse_build_args
 
 
-OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
+# OPERATIONS = ("spmv", "mttkrp", "sddmm", "spgemm")
+OPERATIONS = ("spmv",)
 
 
 def main():
@@ -19,6 +20,8 @@ def main():
 
 
 def build(operation, llvm_build_dir, gpu_arch):
+  cuda_root = Path(os.environ.get("CUDA_PATH", "/usr/local/cuda"))
+
   backend_dir = Path("systems/mlir_sparse_tensor")
   kernels_dir = backend_dir / "kernels"
   generated_dir = Path("generated") / "mlir_sparse_tensor"
@@ -27,6 +30,13 @@ def build(operation, llvm_build_dir, gpu_arch):
   mlir_opt = llvm_build_dir / "bin" / "mlir-opt"
   mlir_translate = llvm_build_dir / "bin" / "mlir-translate"
   llc = llvm_build_dir / "bin" / "llc"
+
+  include_dirs = [llvm_build_dir / "include"]
+  if mlir_include_dir := os.environ.get("MLIR_INCLUDE_DIR"):
+    include_dirs.append(Path(mlir_include_dir))
+
+  runtime_dir = (llvm_build_dir / "lib").resolve()
+  library = generated_dir / "libmlir_sparse_tensor_spmv.so"
 
   commands = [
     (
@@ -62,26 +72,7 @@ def build(operation, llvm_build_dir, gpu_arch):
       ],
       str(generated_dir / f"{operation}.o"),
     ),
-  ]
-
-  for command, out in commands:
-    print("running:", " ".join(command), flush=True)
-    subprocess.run(command, check=True)
-    print("built:", out)
-
-  if operation == "spmv":
-    # Build-tree headers live in both the build directory and source checkout.
-    include_dirs = [llvm_build_dir / "include"]
-    cache = llvm_build_dir / "CMakeCache.txt"
-    if cache.is_file():
-      for line in cache.read_text().splitlines():
-        if line.startswith("CMAKE_HOME_DIRECTORY:INTERNAL="):
-          source_root = Path(line.split("=", 1)[1]).parent
-          include_dirs.append(source_root / "mlir" / "include")
-    cuda_root = Path(os.environ.get("CUDA_PATH", "/usr/local/cuda"))
-    runtime_dir = (llvm_build_dir / "lib").resolve()
-    library = generated_dir / "libmlir_sparse_tensor_spmv.so"
-    subprocess.run(
+    (
       [
         *shlex.split(os.environ.get("CXX", "c++")),
         "-O3",
@@ -106,13 +97,20 @@ def build(operation, llvm_build_dir, gpu_arch):
         "-o",
         str(library),
       ],
-      check=True,
-    )
-    # The runner selects the runtime device before the generated module's
-    # constructor loads its GPU binary into that device's CUDA context.
-    (generated_dir / "cuda-runtime.txt").write_text(
-      str(runtime_dir / "libmlir_cuda_runtime.so")
-    )
+      str(library),
+    ),
+  ]
+
+  for command, out in commands:
+    print("running:", " ".join(command), flush=True)
+    subprocess.run(command, check=True)
+    print("built:", out)
+
+  # The runner selects the runtime device before the generated module's
+  # constructor loads its GPU binary into that device's CUDA context.
+  (generated_dir / "cuda-runtime.txt").write_text(
+    str(runtime_dir / "libmlir_cuda_runtime.so")
+  )
 
 
 if __name__ == "__main__":

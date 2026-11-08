@@ -28,12 +28,16 @@ python -m systems.cusparse.run --operation spgemm
 ## MLIR Sparse Tensor
 
 ```sh
-export LLVM_DIR=/path/to/llvm/build
+export LLVM_DIR=/path/to/llvm/install
 python -m systems.mlir_sparse_tensor.build
 python -m systems.mlir_sparse_tensor.run --operation spmv
 ```
 
-The LLVM build must provide `libmlir_c_runner_utils` and `libmlir_cuda_runtime`.
+The LLVM installation must provide the MLIR headers, `libmlir_c_runner_utils`,
+and `libmlir_cuda_runtime`.
+
+To use an uninstalled LLVM build, set `LLVM_DIR` to its build directory and
+`MLIR_INCLUDE_DIR` to `/path/to/llvm-project/mlir/include` for the source headers.
 
 ## Plot Results
 
