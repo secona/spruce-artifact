@@ -15,7 +15,7 @@ def main():
     assert llvm_build_dir
 
     for operation in (args.operation,) if args.operation else OPERATIONS:
-        print("[Built]", build(operation, Path(llvm_build_dir), args.gpu_arch))
+        build(operation, Path(llvm_build_dir), args.gpu_arch)
 
 
 def build(operation, llvm_build_dir, gpu_arch):
@@ -29,35 +29,45 @@ def build(operation, llvm_build_dir, gpu_arch):
     llc = llvm_build_dir / "bin" / "llc"
 
     commands = [
-        [
-            str(mlir_opt),
-            str(kernels_dir / f"{operation}.mlir"),
-            # f"--pass-pipeline={GPU_PIPELINE}",
-            f"--sparsifier=gpu-triple=nvptx64-nvidia-cuda gpu-chip={gpu_arch} enable-gpu-libgen=false parallelization-strategy=dense-outer-loop",
-            "-o",
+        (
+            [
+                str(mlir_opt),
+                str(kernels_dir / f"{operation}.mlir"),
+                # f"--pass-pipeline={GPU_PIPELINE}",
+                f"--sparsifier=gpu-triple=nvptx64-nvidia-cuda gpu-chip={gpu_arch} enable-gpu-libgen=false parallelization-strategy=dense-outer-loop",
+                "-o",
+                str(generated_dir / f"{operation}.mlir"),
+            ],
             str(generated_dir / f"{operation}.mlir"),
-        ],
-        [
-            str(mlir_translate),
-            str(generated_dir / f"{operation}.mlir"),
-            "--mlir-to-llvmir",
-            "-o",
+        ),
+        (
+            [
+                str(mlir_translate),
+                str(generated_dir / f"{operation}.mlir"),
+                "--mlir-to-llvmir",
+                "-o",
+                str(generated_dir / f"{operation}.ll"),
+            ],
             str(generated_dir / f"{operation}.ll"),
-        ],
-        [
-            str(llc),
-            "-O3",
-            "-filetype=obj",
-            "-relocation-model=pic",
-            str(generated_dir / f"{operation}.ll"),
-            "-o",
+        ),
+        (
+            [
+                str(llc),
+                "-O3",
+                "-filetype=obj",
+                "-relocation-model=pic",
+                str(generated_dir / f"{operation}.ll"),
+                "-o",
+                str(generated_dir / f"{operation}.o"),
+            ],
             str(generated_dir / f"{operation}.o"),
-        ],
+        ),
     ]
 
-    for command in commands:
-        print("[Running]", " ".join(command), flush=True)
+    for command, out in commands:
+        print("running:", " ".join(command), flush=True)
         subprocess.run(command, check=True)
+        print("built:", out)
 
     if operation == "spmv":
         # Build-tree headers live in both the build directory and source checkout.
@@ -103,9 +113,6 @@ def build(operation, llvm_build_dir, gpu_arch):
         (generated_dir / "cuda-runtime.txt").write_text(
             str(runtime_dir / "libmlir_cuda_runtime.so")
         )
-        return library
-
-    return generated_dir / f"{operation}.mlir"
 
 
 if __name__ == "__main__":
