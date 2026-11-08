@@ -2,6 +2,7 @@
 *.mtx
 *.tns
 *.npy
+/dataset/*.gz
 
 **/__pycache__/
 **/.venv/

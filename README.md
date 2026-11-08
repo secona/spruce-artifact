@@ -13,8 +13,12 @@
 
 ```sh
 git submodule update --init --recursive --depth=1
-python -m dataset.sparse-matrix-data-helper download
+bash dataset/download.sh
+bash dataset/extract.sh
+python -m dataset.generate_inputs
 ```
+
+Run these commands from the repository root.
 
 ## cuSPARSE
 
