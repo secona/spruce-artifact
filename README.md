@@ -6,7 +6,7 @@
 | --- | :---: | :---: | :---: | :---: |
 | cuSPARSE | ✅ | ✅ | ✅ | ❌ |
 | MLIR Sparse Tensor | ✅ | ❌ | ❌ | ✅ |
-<!-- | Nacho | ❌ | ❌ | ✅ | ❌ | -->
+| Nacho | ❌ | ❌ | ✅ | ❌ |
 <!-- | SparseTIR | ✅ | ✅ | ❌ | ⏸️ | -->
 
 ## Setup

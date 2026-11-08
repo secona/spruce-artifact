@@ -7,6 +7,7 @@
 
 #include "../common/cuda_utils.h"
 
+namespace {
 struct HostCsr {
   int rows, cols;
   int64_t nnz;
@@ -14,7 +15,6 @@ struct HostCsr {
   const float *values;
 };
 
-namespace {
 struct DeviceCsr {
   Buffer offsets, columns, values;
   explicit DeviceCsr(const HostCsr &a)
@@ -49,50 +49,46 @@ struct Product {
 };
 } // namespace
 
-extern "C" const char *spruce_benchmark_spgemm(int device, const HostCsr *a,
-                                               const HostCsr *b, int blocks,
-                                               int threads, int warmup,
-                                               int repeat, float *samples) {
+extern "C" const char *spruce_benchmark_spgemm(
+    int device, int m, int k, int n, int64_t nnz_a, const int *offsets_a,
+    const int *columns_a, const float *values_a, int64_t nnz_b,
+    const int *offsets_b, const int *columns_b, const float *values_b,
+    int warmup, int repeat, float *samples) {
   static thread_local std::string error;
   try {
-    assert(a);
-    assert(b);
     assert(samples);
-    assert(a->rows >= 1);
-    assert(a->cols >= 1);
-    assert(b->cols >= 1);
-    assert(a->cols == b->rows);
-    assert(a->nnz >= 0);
-    assert(b->nnz >= 0);
-    assert(a->nnz <= std::numeric_limits<int32_t>::max());
-    assert(b->nnz <= std::numeric_limits<int32_t>::max());
+    assert(m >= 1 && k >= 1 && n >= 1);
+    assert(nnz_a >= 0 && nnz_b >= 0);
+    assert(nnz_a <= std::numeric_limits<int32_t>::max());
+    assert(nnz_b <= std::numeric_limits<int32_t>::max());
     assert(warmup >= 0);
     assert(repeat >= 1);
-    assert(blocks >= 1);
-    assert(threads >= 1);
-    assert(int64_t(blocks) * threads < std::numeric_limits<int32_t>::max());
+    constexpr int blocks = 256;
+    constexpr int threads = 256;
+    const HostCsr a{m, k, nnz_a, offsets_a, columns_a, values_a};
+    const HostCsr b{k, n, nnz_b, offsets_b, columns_b, values_b};
     CHECK_CUDA(cudaSetDevice(device));
     cudaDeviceProp properties;
     CHECK_CUDA(cudaGetDeviceProperties(&properties, device));
     assert(threads <= properties.maxThreadsPerBlock);
     assert(blocks <= properties.maxGridSize[0]);
-    DeviceCsr da(*a), db(*b);
+    DeviceCsr da(a), db(b);
     spgemm::a_tensor_format<int32_t, float> input_a{
-        a->rows,
-        a->cols,
+        a.rows,
+        a.cols,
         static_cast<int *>(da.offsets.value),
-        static_cast<int32_t>(a->nnz),
+        static_cast<int32_t>(a.nnz),
         static_cast<int *>(da.columns.value),
         static_cast<float *>(da.values.value),
-        static_cast<int32_t>(a->nnz)};
+        static_cast<int32_t>(a.nnz)};
     spgemm::b_tensor_format<int32_t, float> input_b{
-        b->rows,
-        b->cols,
+        b.rows,
+        b.cols,
         static_cast<int *>(db.offsets.value),
-        static_cast<int32_t>(b->nnz),
+        static_cast<int32_t>(b.nnz),
         static_cast<int *>(db.columns.value),
         static_cast<float *>(db.values.value),
-        static_cast<int32_t>(b->nnz)};
+        static_cast<int32_t>(b.nnz)};
     Resource<cudaEvent_t, cudaEventDestroy> start, stop;
     CHECK_CUDA(cudaEventCreate(&start.value));
     CHECK_CUDA(cudaEventCreate(&stop.value));
