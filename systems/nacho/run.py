@@ -56,7 +56,6 @@ def main():
   args = parse_run_args(OPERATIONS)
   blocks = 256
   threads_per_block = 256
-  output_path = Path("generated/nacho") / "spgemm.csv"
 
   from benchmarks.spgemm import config
 
@@ -71,12 +70,11 @@ def main():
       args.warmup,
       blocks,
       threads_per_block,
-      output_path,
     )
 
 
 def run_spgemm(
-  A_path, B_path, repeat, device, warmup, blocks, threads_per_block, output_path
+  A_path, B_path, repeat, device, warmup, blocks, threads_per_block
 ):
   library_path = Path("generated/nacho") / "libnacho_spgemm.so"
   if not library_path.is_file():
@@ -141,7 +139,7 @@ def run_spgemm(
     scope="generated_spgemm_call",
   )
   result.print_summary()
-  result.write_csv(output_path)
+  result.write_csv()
 
 
 if __name__ == "__main__":

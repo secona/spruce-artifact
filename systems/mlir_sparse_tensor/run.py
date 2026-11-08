@@ -89,7 +89,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     scope="generated_call_including_transfers",
   )
   result.print_summary()
-  result.write_csv("generated/mlir_sparse_tensor/spmv.csv")
+  result.write_csv()
 
 
 def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
@@ -154,7 +154,7 @@ def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
     scope="generated_call_including_transfers",
   )
   result.print_summary()
-  result.write_csv("generated/mlir_sparse_tensor/mttkrp.csv")
+  result.write_csv()
 
 
 def main():

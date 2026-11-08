@@ -1,13 +1,13 @@
 """Plot elapsed time versus benchmark case using vertical box plots.
 
-By default, read generated/*/*.csv and plot the latest run per input/backend.
+By default, read generated/*/results/*.csv and plot the latest run per input/backend.
 Operations, devices, timing methods, and timing scopes get separate figures.
 Each figure is saved as PNG and SVG in generated/plots.
 Filenames include the system name alongside the operation and timing context.
 
 Examples:
     python -m benchmarks.plot
-    python -m benchmarks.plot generated/cusparse/spmv.csv --log
+    python -m benchmarks.plot generated/cusparse/results/spmv_*.csv --log
     python -m benchmarks.plot --operation spmv --all-runs
 """
 
@@ -46,7 +46,7 @@ def result_from_row(row: dict[str, str]) -> BenchmarkResult:
 
     inputs = {}
     if "a_path" in row:
-        for name in ("A", "B", "x"):
+        for name in ("A", "B", "x", "C"):
             prefix = name.lower()
             path = row.get(f"{prefix}_path")
             if not path:
@@ -54,6 +54,8 @@ def result_from_row(row: dict[str, str]) -> BenchmarkResult:
             shape = (int(row[f"{prefix}_rows"]),)
             if row.get(f"{prefix}_cols"):
                 shape += (int(row[f"{prefix}_cols"]),)
+            if row.get(f"{prefix}_depth"):
+                shape += (int(row[f"{prefix}_depth"]),)
             nnz = row.get(f"{prefix}_nnz")
             inputs[name] = InputInfo(path, shape, int(nnz) if nnz else None)
     else:
@@ -178,13 +180,13 @@ def plot_results(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("csv", type=Path, nargs="*", help="Input CSVs (default: generated/*/*.csv)")
+    parser.add_argument("csv", type=Path, nargs="*", help="Input CSVs (default: generated/*/results/*.csv)")
     parser.add_argument("--operation", help="Only plot this operation, e.g. spmv or spgemm")
     parser.add_argument("--output-dir", type=Path, default=Path("generated/plots"))
     parser.add_argument("--all-runs", action="store_true", help="Show each historical run as a separate box")
     parser.add_argument("--log", action="store_true", help="Use a logarithmic elapsed-time axis")
     args = parser.parse_args()
-    paths = args.csv or sorted(Path("generated").glob("*/*.csv"))
+    paths = args.csv or sorted(Path("generated").glob("*/results/*.csv"))
     if not paths:
         parser.exit(1, "No benchmark CSVs found. Run a benchmark first or provide CSV paths.\n")
     try:

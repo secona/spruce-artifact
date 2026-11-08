@@ -109,7 +109,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     samples_ms=samples.tolist(),
   )
   result.print_summary()
-  result.write_csv("generated/cusparse/spmv.csv")
+  result.write_csv()
 
 
 def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
@@ -199,7 +199,7 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
     samples_ms=samples.tolist(),
   )
   result.print_summary()
-  result.write_csv("generated/cusparse/sddmm.csv")
+  result.write_csv()
 
 
 def run_spgemm(A_path, B_path, repeat, device, warmup):
@@ -290,7 +290,7 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     samples_ms=samples.tolist(),
   )
   result.print_summary()
-  result.write_csv("generated/cusparse/spgemm.csv")
+  result.write_csv()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import csv
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, median
 
@@ -57,8 +58,8 @@ class BenchmarkResult:
         details.append(f"{median_ms=:.6f}, {samples=}")
         print(f"{self.backend} {self.operation.upper()}: {', '.join(details)}")
 
-    def write_csv(self, path: str | Path) -> None:
-        """Write samples to a new CSV, adding a numbered suffix if needed."""
+    def write_csv(self) -> None:
+        """Write samples under the backend's results directory using run_utc."""
         unknown_inputs = self.inputs.keys() - set(_CSV_INPUT_NAMES)
         if unknown_inputs:
             raise ValueError(f"Unsupported CSV input names: {sorted(unknown_inputs)}")
@@ -97,19 +98,13 @@ class BenchmarkResult:
                 row[f"{prefix}_depth"] = info.shape[2]
         fieldnames.extend(("device", "warmup", "repeat", "timing", "scope", "iteration", "elapsed_ms"))
 
-        path = Path(path)
+        timestamp = datetime.fromisoformat(self.run_utc)
+        assert timestamp.tzinfo is not None
+        stamp = timestamp.astimezone(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+        path = Path("generated") / self.backend / "results" / f"{self.operation}_{stamp}.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
-        candidate = path
-        suffix = 0
-        while True:
-            try:
-                output = candidate.open("x", newline="", encoding="utf-8")
-                break
-            except FileExistsError:
-                suffix += 1
-                candidate = path.with_name(f"{path.stem}_{suffix}{path.suffix}")
 
-        with output:
+        with path.open("x", newline="", encoding="utf-8") as output:
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             for iteration, elapsed in enumerate(self.samples_ms, start=1):

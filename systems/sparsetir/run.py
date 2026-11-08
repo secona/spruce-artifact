@@ -73,7 +73,7 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
     scope="execution",
   )
   result.print_summary()
-  result.write_csv(Path("generated/sparsetir") / f"{operation}.csv")
+  result.write_csv()
 
 
 def main():
