@@ -2,7 +2,6 @@
 // interface.
 #include "mlir/ExecutionEngine/SparseTensorRuntime.h"
 #include <algorithm>
-#include <chrono>
 #include <cuda_runtime_api.h>
 #include <memory>
 #include <stdexcept>
@@ -22,6 +21,14 @@ static void check(cudaError_t status) {
   if (status != cudaSuccess)
     throw std::runtime_error(cudaGetErrorString(status));
 }
+
+struct Event {
+  cudaEvent_t value = nullptr;
+  Event() { check(cudaEventCreate(&value)); }
+  Event(const Event &) = delete;
+  Event &operator=(const Event &) = delete;
+  ~Event() { cudaEventDestroy(value); }
+};
 
 extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
                                              int64_t nnz, uint64_t *offsets,
@@ -48,20 +55,28 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
     auto input = view(x, n);
     auto y = view(output, m);
     auto execute = [&] {
-      // The MLIR operation accumulates into y, so reset it on every call.
-      std::fill(output, output + m, 0.0f);
       MemRef result{};
       _mlir_ciface_spmv(&result, a.get(), &input, &y);
       check(cudaDeviceSynchronize());
     };
-    for (int i = 0; i < warmup; ++i)
+    Event start, stop;
+    for (int i = 0; i < warmup; ++i) {
+      std::fill(output, output + m, 0.0f);
       execute();
+    }
     for (int i = 0; i < repeat; ++i) {
-      auto start = std::chrono::steady_clock::now();
+      // The MLIR operation accumulates into y; reset it outside timing.
+      std::fill(output, output + m, 0.0f);
+      check(cudaEventRecord(start.value, 0));
+      // Generated code creates its own streams. Complete the start event
+      // before entering it; execute() waits for all work before the stop event.
+      check(cudaEventSynchronize(start.value));
       execute();
-      auto stop = std::chrono::steady_clock::now();
-      samples[i] =
-          std::chrono::duration<double, std::milli>(stop - start).count();
+      check(cudaEventRecord(stop.value, 0));
+      check(cudaEventSynchronize(stop.value));
+      float elapsed;
+      check(cudaEventElapsedTime(&elapsed, start.value, stop.value));
+      samples[i] = elapsed;
     }
     return nullptr;
   } catch (const std::exception &exception) {

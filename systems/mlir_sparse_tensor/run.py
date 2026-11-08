@@ -62,7 +62,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
             "x": InputInfo(str(x_path.resolve()), x.shape),
         },
         device=device, warmup=warmup, samples_ms=samples.tolist(),
-        timing="wall_clock", scope="generated_call_including_transfers",
+        timing="cuda_events", scope="generated_call_including_transfers",
     )
     result.print_summary()
     result.write_csv("generated/mlir_sparse_tensor/spmv.csv")
