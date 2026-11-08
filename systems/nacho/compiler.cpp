@@ -5,6 +5,7 @@
 
 using namespace nacho;
 
+// clang-format off
 int main(int argc, char **argv) {
   if (!nacho::parse_command_line(argc, argv))
     return 1;
@@ -92,3 +93,4 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+// clang-format on
