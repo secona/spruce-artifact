@@ -76,7 +76,7 @@ def build(operation, llvm_build_dir, gpu_arch):
             "-O3", "-std=c++17", "-shared", "-fPIC",
             *[flag for path in include_dirs for flag in ("-I", str(path))],
             "-I", str(cuda_root / "include"),
-            str(backend_dir / "benchmark.cpp"), str(generated_dir / "spmv.o"),
+            str(backend_dir / "benchmark_spmv.cpp"), str(generated_dir / "spmv.o"),
             "-L", str(runtime_dir), f"-Wl,-rpath,{runtime_dir}",
             "-lmlir_c_runner_utils", "-lmlir_cuda_runtime",
             "-L", str(cuda_root / "lib"), "-L", str(cuda_root / "lib64"),
