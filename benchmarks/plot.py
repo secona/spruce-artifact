@@ -1,6 +1,6 @@
 """Plot elapsed time versus benchmark case using vertical box plots.
 
-By default, read generated/*/results/*.csv and plot the latest run per input/backend.
+By default, read the current results from generated/*/results/*.csv.
 Operations, devices, timing methods, and timing scopes get separate figures.
 Each figure is saved as PNG and SVG in generated/plots.
 Filenames include the system name alongside the operation and timing context.
@@ -8,7 +8,7 @@ Filenames include the system name alongside the operation and timing context.
 Examples:
     python -m benchmarks.plot
     python -m benchmarks.plot generated/cusparse/results/spmv_*.csv --log
-    python -m benchmarks.plot --operation spmv --all-runs
+    python -m benchmarks.plot --operation spmv
 """
 
 import argparse
@@ -18,67 +18,44 @@ from datetime import datetime, timezone
 import math
 from pathlib import Path
 import re
-from .result import BenchmarkResult, InputInfo
+from .result import BenchmarkResult
 
 
 _REQUIRED_COLUMNS = {
-    "run_utc", "backend", "operation", "device", "warmup", "scope", "elapsed_ms",
+    "run_utc", "backend", "operation", "operand_names", "device", "warmup",
+    "repeat", "timing", "scope", "iteration", "elapsed_ms",
 }
 
 
 def case_key(result: BenchmarkResult) -> tuple:
     """Keep every input and the measurement context in the case identity."""
-    inputs = tuple(
-        (name, info.path, info.shape, info.nnz)
-        for name, info in sorted(result.inputs.items())
+    return (
+        result.backend, result.operation, tuple(result.operand_names),
+        result.device, result.timing, result.scope,
     )
-    return (result.backend, result.operation, inputs, result.device, result.timing, result.scope)
 
 
 def result_from_row(row: dict[str, str]) -> BenchmarkResult:
     elapsed = float(row["elapsed_ms"])
-    if not math.isfinite(elapsed) or elapsed < 0:
-        raise ValueError("elapsed_ms must be finite and nonnegative")
+    assert math.isfinite(elapsed)
+    assert elapsed >= 0
 
     timestamp = datetime.fromisoformat(row["run_utc"])
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-    inputs = {}
-    if "a_path" in row:
-        for name in ("A", "B", "x", "C"):
-            prefix = name.lower()
-            path = row.get(f"{prefix}_path")
-            if not path:
-                continue
-            shape = (int(row[f"{prefix}_rows"]),)
-            if row.get(f"{prefix}_cols"):
-                shape += (int(row[f"{prefix}_cols"]),)
-            if row.get(f"{prefix}_depth"):
-                shape += (int(row[f"{prefix}_depth"]),)
-            nnz = row.get(f"{prefix}_nnz")
-            inputs[name] = InputInfo(path, shape, int(nnz) if nnz else None)
-    else:
-        # The existing Nacho runner predates BenchmarkResult's column names.
-        inputs = {
-            "A": InputInfo(row["matrix_a"], (int(row["m"]), int(row["k"])), int(row["nnz_a"])),
-            "B": InputInfo(row["matrix_b"], (int(row["k"]), int(row["n"])), int(row["nnz_b"])),
-        }
-    if "A" not in inputs or not inputs["A"].path:
-        raise ValueError("Missing input A")
-    for name in ("backend", "operation", "scope"):
-        if not row[name].strip():
-            raise ValueError(f"Missing {name}")
+    for name in ("backend", "operation", "timing", "scope"):
+        assert row[name].strip()
 
     return BenchmarkResult(
         run_utc=timestamp.astimezone(timezone.utc).isoformat(),
         backend=row["backend"],
         operation=row["operation"],
-        inputs=inputs,
+        operand_names=row["operand_names"].split(";"),
         device=int(row["device"]),
         warmup=int(row["warmup"]),
         samples_ms=[elapsed],
-        timing=row.get("timing") or "unspecified",
+        timing=row["timing"],
         scope=row["scope"],
     )
 
@@ -92,14 +69,12 @@ def load_results(paths: list[Path]) -> list[BenchmarkResult]:
             missing = _REQUIRED_COLUMNS - columns
             if missing:
                 raise ValueError(f"{path}: missing CSV columns: {', '.join(sorted(missing))}")
-            if not {"a_path", "matrix_a"} & columns:
-                raise ValueError(f"{path}: expected an a_path or matrix_a input column")
             for row in reader:
                 try:
                     if None in row or any(value is None for value in row.values()):
                         raise ValueError("Row does not match the CSV header")
                     result = result_from_row(row)
-                except (KeyError, ValueError) as error:
+                except (AssertionError, KeyError, ValueError) as error:
                     raise ValueError(f"{path}:{reader.line_num}: {error}") from error
                 key = (case_key(result), result.run_utc, result.warmup)
                 if key in runs:
@@ -109,17 +84,8 @@ def load_results(paths: list[Path]) -> list[BenchmarkResult]:
     return list(runs.values())
 
 
-def latest_results(results: list[BenchmarkResult]) -> list[BenchmarkResult]:
-    latest = {}
-    for result in results:
-        key = case_key(result)
-        if key not in latest or result.run_utc > latest[key].run_utc:
-            latest[key] = result
-    return list(latest.values())
-
-
 def plot_results(
-    results: list[BenchmarkResult], output_dir: Path, *, all_runs: bool = False, log_scale: bool = False,
+    results: list[BenchmarkResult], output_dir: Path, *, log_scale: bool = False,
 ) -> list[Path]:
     if not results:
         raise ValueError("No benchmark results to plot")
@@ -139,19 +105,15 @@ def plot_results(
     outputs = []
     for (operation, device, timing, scope), runs in sorted(groups.items()):
         runs.sort(key=lambda result: (
-            tuple((name, info.path) for name, info in sorted(result.inputs.items())),
+            tuple(result.operand_names),
             result.backend, result.run_utc,
         ))
         backends = sorted({result.backend for result in runs})
         labels = []
         for result in runs:
-            label = "\n".join(
-                f"{name}={Path(info.path).name}" for name, info in sorted(result.inputs.items())
-            )
+            label = "\n".join(result.operand_names)
             if len(backends) > 1:
                 label += f"\n{result.backend}"
-            if all_runs:
-                label += f"\n{result.run_utc}"
             labels.append(label)
 
         figure, axis = plt.subplots(figsize=(max(7, len(runs) * 2), 5), layout="constrained")
@@ -183,7 +145,6 @@ def main():
     parser.add_argument("csv", type=Path, nargs="*", help="Input CSVs (default: generated/*/results/*.csv)")
     parser.add_argument("--operation", help="Only plot this operation, e.g. spmv or spgemm")
     parser.add_argument("--output-dir", type=Path, default=Path("generated/plots"))
-    parser.add_argument("--all-runs", action="store_true", help="Show each historical run as a separate box")
     parser.add_argument("--log", action="store_true", help="Use a logarithmic elapsed-time axis")
     args = parser.parse_args()
     paths = args.csv or sorted(Path("generated").glob("*/results/*.csv"))
@@ -193,9 +154,7 @@ def main():
         results = load_results(paths)
         if args.operation:
             results = [result for result in results if result.operation == args.operation]
-        if not args.all_runs:
-            results = latest_results(results)
-        outputs = plot_results(results, args.output_dir, all_runs=args.all_runs, log_scale=args.log)
+        outputs = plot_results(results, args.output_dir, log_scale=args.log)
     except (OSError, ValueError, RuntimeError, csv.Error) as error:
         parser.exit(1, f"Error: {error}\n")
     systems = ", ".join(sorted({result.backend for result in results}))

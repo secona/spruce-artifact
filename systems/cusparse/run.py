@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
 from scipy import io, sparse
-from benchmarks.result import BenchmarkResult, InputInfo
+from benchmarks.result import BenchmarkResult
 from benchmarks.args import parse_run_args
 
 INT_MAX = 2**31 - 1
@@ -100,10 +100,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     run_utc=run_utc,
     backend="cusparse",
     operation="spmv",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), A.shape, A.nnz),
-      "x": InputInfo(str(x_path.resolve()), x.shape),
-    },
+    operand_names=[A_path.name, x_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),
@@ -189,11 +186,7 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
     run_utc=run_utc,
     backend="cusparse",
     operation="sddmm",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), A.shape, A.nnz),
-      "B": InputInfo(str(B_path.resolve()), B.shape),
-      "C": InputInfo(str(C_path.resolve()), C.shape),
-    },
+    operand_names=[A_path.name, B_path.name, C_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),
@@ -281,10 +274,7 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     run_utc=run_utc,
     backend="cusparse",
     operation="spgemm",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), A.shape, A.nnz),
-      "B": InputInfo(str(B_path.resolve()), B.shape, B.nnz),
-    },
+    operand_names=[A_path.name, B_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from benchmarks.args import parse_run_args
-from benchmarks.result import BenchmarkResult, InputInfo
+from benchmarks.result import BenchmarkResult
 
 
 OPERATIONS = ("spgemm",)
@@ -129,10 +129,7 @@ def run_spgemm(
     run_utc=run_utc,
     backend="nacho",
     operation="spgemm",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), a.shape, a.nnz),
-      "B": InputInfo(str(B_path.resolve()), b.shape, b.nnz),
-    },
+    operand_names=[A_path.name, B_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),

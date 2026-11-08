@@ -8,7 +8,7 @@ import numpy as np
 
 from benchmarks.args import parse_run_args
 from benchmarks.inputs import check_output, load_csf, load_csr, load_dense
-from benchmarks.result import BenchmarkResult, InputInfo
+from benchmarks.result import BenchmarkResult
 
 
 OPERATIONS = ("spmv", "mttkrp")
@@ -78,10 +78,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     run_utc=run_utc,
     backend="mlir_sparse_tensor",
     operation="spmv",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), a.shape, a.nnz),
-      "x": InputInfo(str(x_path.resolve()), x.shape),
-    },
+    operand_names=[A_path.name, x_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),
@@ -142,11 +139,7 @@ def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
     run_utc=run_utc,
     backend="mlir_sparse_tensor",
     operation="mttkrp",
-    inputs={
-      "A": InputInfo(str(A_path.resolve()), shape, values.size),
-      "B": InputInfo(str(B_path.resolve()), b.shape),
-      "C": InputInfo(str(C_path.resolve()), c.shape),
-    },
+    operand_names=[A_path.name, B_path.name, C_path.name],
     device=device,
     warmup=warmup,
     samples_ms=samples.tolist(),

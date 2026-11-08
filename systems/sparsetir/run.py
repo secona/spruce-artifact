@@ -7,7 +7,7 @@ import numpy as np
 
 from benchmarks.args import parse_run_args
 from benchmarks.inputs import check_output, load_csr, load_dense
-from benchmarks.result import BenchmarkResult, InputInfo
+from benchmarks.result import BenchmarkResult
 from .build import compile_kernel
 
 
@@ -18,10 +18,8 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
   import tvm
 
   a = load_csr(paths[0])
-  inputs = {"A": InputInfo(str(paths[0].resolve()), a.shape, a.nnz)}
   if operation == "spmv":
     x = load_dense(paths[1], a.shape[1], 1)
-    inputs["x"] = InputInfo(str(paths[1].resolve()), x.shape)
     output = np.zeros(a.shape[0], dtype=np.float32)
     arrays = [a.data, x, output, a.indptr, a.indices]
     shape = (*a.shape, a.nnz)
@@ -32,12 +30,6 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
     c = load_dense(paths[2], a.shape[1], 2)
     if b.shape[1] != c.shape[1]:
       raise ValueError("SDDMM factor ranks must match")
-    inputs.update(
-      {
-        "B": InputInfo(str(paths[1].resolve()), b.shape),
-        "C": InputInfo(str(paths[2].resolve()), c.shape),
-      }
-    )
     output = np.zeros(a.nnz, dtype=np.float32)
     arrays = [a.data, b, c, output, a.indptr, a.indices]
     shape = (*a.shape, b.shape[1], a.nnz)
@@ -66,7 +58,7 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
     run_utc=run_utc,
     backend="sparsetir",
     operation=operation,
-    inputs=inputs,
+    operand_names=[path.name for path in paths],
     device=device,
     warmup=warmup,
     samples_ms=[seconds * 1000 for seconds in measurements.results],

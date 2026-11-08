@@ -1,18 +1,7 @@
 import csv
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, median
-
-
-_CSV_INPUT_NAMES = ("A", "B", "x", "C")
-
-
-@dataclass
-class InputInfo:
-    path: str
-    shape: tuple[int, ...]
-    nnz: int | None = None
 
 
 @dataclass
@@ -20,7 +9,7 @@ class BenchmarkResult:
     run_utc: str
     backend: str
     operation: str
-    inputs: dict[str, InputInfo]
+    operand_names: list[str]
     device: int
     warmup: int
     samples_ms: list[float]
@@ -28,8 +17,14 @@ class BenchmarkResult:
     scope: str = "execution"
 
     def __post_init__(self):
-        if not self.samples_ms:
-            raise ValueError("A benchmark result must contain at least one sample")
+        assert self.samples_ms
+        assert isinstance(self.operand_names, list)
+        assert self.operand_names
+        for name in self.operand_names:
+            assert isinstance(name, str)
+            assert name
+            assert Path(name).name == name
+            assert ";" not in name
 
     @property
     def repeat(self) -> int:
@@ -54,57 +49,31 @@ class BenchmarkResult:
     def print_summary(self) -> None:
         median_ms = self.median_ms
         samples = self.repeat
-        details = [f"{name}={Path(info.path).name}" for name, info in self.inputs.items()]
+        details = list(self.operand_names)
         details.append(f"{median_ms=:.6f}, {samples=}")
         print(f"{self.backend} {self.operation.upper()}: {', '.join(details)}")
 
     def write_csv(self) -> None:
-        """Write samples under the backend's results directory using run_utc."""
-        unknown_inputs = self.inputs.keys() - set(_CSV_INPUT_NAMES)
-        if unknown_inputs:
-            raise ValueError(f"Unsupported CSV input names: {sorted(unknown_inputs)}")
-
-        fieldnames = ["run_utc", "backend", "operation"]
+        """Save one CSV per operation and operands, replacing the previous run."""
         row = {
             "run_utc": self.run_utc,
             "backend": self.backend,
             "operation": self.operation,
+            "operand_names": ";".join(self.operand_names),
             "device": self.device,
             "warmup": self.warmup,
             "repeat": self.repeat,
             "timing": self.timing,
             "scope": self.scope,
         }
-        # Preserve existing SpMV/SpGEMM CSV headers when adding SDDMM's C input.
-        input_names = _CSV_INPUT_NAMES if "C" in self.inputs else _CSV_INPUT_NAMES[:-1]
-        for name in input_names:
-            prefix = name.lower()
-            info = self.inputs.get(name)
-            fields = ["path", "rows", "cols", "nnz"]
-            if info is not None:
-                if len(info.shape) == 3:
-                    fields.insert(3, "depth")
-            fieldnames.extend(f"{prefix}_{field}" for field in fields)
-            if info is None:
-                continue
-            assert len(info.shape) in (1, 2, 3)
-            row.update({
-                f"{prefix}_path": info.path,
-                f"{prefix}_rows": info.shape[0],
-                f"{prefix}_cols": info.shape[1] if len(info.shape) >= 2 else None,
-                f"{prefix}_nnz": info.nnz,
-            })
-            if len(info.shape) == 3:
-                row[f"{prefix}_depth"] = info.shape[2]
-        fieldnames.extend(("device", "warmup", "repeat", "timing", "scope", "iteration", "elapsed_ms"))
+        fieldnames = [*row, "iteration", "elapsed_ms"]
 
-        timestamp = datetime.fromisoformat(self.run_utc)
-        assert timestamp.tzinfo is not None
-        stamp = timestamp.astimezone(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
-        path = Path("generated") / self.backend / "results" / f"{self.operation}_{stamp}.csv"
+        operands = [Path(name).stem for name in self.operand_names]
+        filename = "__".join([self.operation, *operands]) + ".csv"
+        path = Path("generated") / self.backend / "results" / filename
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with path.open("x", newline="", encoding="utf-8") as output:
+        with path.open("w", newline="", encoding="utf-8") as output:
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             for iteration, elapsed in enumerate(self.samples_ms, start=1):
