@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "../common/cuda_utils.h"
+
 struct HostCsr {
   int rows, cols;
   int64_t nnz;
@@ -12,11 +14,6 @@ struct HostCsr {
 };
 
 namespace {
-void check(cudaError_t status) {
-  if (status != cudaSuccess)
-    throw std::runtime_error(cudaGetErrorString(status));
-}
-
 template <typename T, auto destroy> struct Resource {
   T value = nullptr;
   Resource() = default;
@@ -30,7 +27,7 @@ template <typename T, auto destroy> struct Resource {
 
 struct Buffer : Resource<void *, cudaFree> {
   explicit Buffer(size_t bytes) {
-    check(cudaMalloc(&value, bytes ? bytes : 1));
+    CHECK_CUDA(cudaMalloc(&value, bytes ? bytes : 1));
   }
 };
 
@@ -40,14 +37,16 @@ struct DeviceCsr {
       : offsets((size_t(a.rows) + 1) * sizeof(int)),
         columns(size_t(a.nnz) * sizeof(int)),
         values(size_t(a.nnz) * sizeof(float)) {
-    check(cudaMemcpy(offsets.value, a.offsets,
-                     (size_t(a.rows) + 1) * sizeof(int),
-                     cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(offsets.value, a.offsets,
+                          (size_t(a.rows) + 1) * sizeof(int),
+                          cudaMemcpyHostToDevice));
     if (a.nnz) {
-      check(cudaMemcpy(columns.value, a.columns, size_t(a.nnz) * sizeof(int),
-                       cudaMemcpyHostToDevice));
-      check(cudaMemcpy(values.value, a.values, size_t(a.nnz) * sizeof(float),
-                       cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(columns.value, a.columns,
+                            size_t(a.nnz) * sizeof(int),
+                            cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(values.value, a.values,
+                            size_t(a.nnz) * sizeof(float),
+                            cudaMemcpyHostToDevice));
     }
   }
 };
@@ -80,9 +79,9 @@ extern "C" const char *spruce_benchmark_spgemm(int device, const HostCsr *a,
         int64_t(blocks) * threads >= std::numeric_limits<int32_t>::max())
       throw std::invalid_argument(
           "Invalid SpGEMM inputs or benchmark configuration");
-    check(cudaSetDevice(device));
+    CHECK_CUDA(cudaSetDevice(device));
     cudaDeviceProp properties;
-    check(cudaGetDeviceProperties(&properties, device));
+    CHECK_CUDA(cudaGetDeviceProperties(&properties, device));
     if (threads > properties.maxThreadsPerBlock ||
         blocks > properties.maxGridSize[0])
       throw std::invalid_argument("Launch geometry exceeds device limits");
@@ -104,28 +103,28 @@ extern "C" const char *spruce_benchmark_spgemm(int device, const HostCsr *a,
         static_cast<float *>(db.values.value),
         static_cast<int32_t>(b->nnz)};
     Resource<cudaEvent_t, cudaEventDestroy> start, stop;
-    check(cudaEventCreate(&start.value));
-    check(cudaEventCreate(&stop.value));
+    CHECK_CUDA(cudaEventCreate(&start.value));
+    CHECK_CUDA(cudaEventCreate(&stop.value));
     for (int i = 0; i < warmup; ++i) {
       Product result;
       result.value =
           spgemm::spgemm_gpu_i32_f32(input_a, input_b, blocks, threads);
-      check(cudaGetLastError());
+      CHECK_CUDA(cudaGetLastError());
     }
-    check(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaDeviceSynchronize());
     for (int i = 0; i < repeat; ++i) {
       // Complete the preceding result's release before the start event.
-      check(cudaDeviceSynchronize());
+      CHECK_CUDA(cudaDeviceSynchronize());
       Product result;
-      check(cudaEventRecord(start.value, 0));
+      CHECK_CUDA(cudaEventRecord(start.value, 0));
       result.value =
           spgemm::spgemm_gpu_i32_f32(input_a, input_b, blocks, threads);
-      check(cudaEventRecord(stop.value, 0));
-      check(cudaGetLastError());
-      check(cudaEventSynchronize(stop.value));
-      check(cudaEventElapsedTime(&samples[i], start.value, stop.value));
+      CHECK_CUDA(cudaEventRecord(stop.value, 0));
+      CHECK_CUDA(cudaGetLastError());
+      CHECK_CUDA(cudaEventSynchronize(stop.value));
+      CHECK_CUDA(cudaEventElapsedTime(&samples[i], start.value, stop.value));
     }
-    check(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaDeviceSynchronize());
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();

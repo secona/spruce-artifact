@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "../common/cuda_utils.h"
+
 using namespace mlir::sparse_tensor;
 using MemRef = StridedMemRefType<float, 1>;
 
@@ -17,14 +19,9 @@ template <typename T> StridedMemRefType<T, 1> view(T *data, int64_t size) {
   return {data, data, 0, {size}, {1}};
 }
 
-static void check(cudaError_t status) {
-  if (status != cudaSuccess)
-    throw std::runtime_error(cudaGetErrorString(status));
-}
-
 struct Event {
   cudaEvent_t value = nullptr;
-  Event() { check(cudaEventCreate(&value)); }
+  Event() { CHECK_CUDA(cudaEventCreate(&value)); }
   Event(const Event &) = delete;
   Event &operator=(const Event &) = delete;
   ~Event() { cudaEventDestroy(value); }
@@ -37,7 +34,7 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
                                              double *samples, float *output) {
   static thread_local std::string error;
   try {
-    check(cudaSetDevice(device));
+    CHECK_CUDA(cudaSetDevice(device));
     mgpuSetDefaultDevice(device);
     uint64_t sizes[] = {uint64_t(m), uint64_t(n)}, mapping[] = {0, 1};
     LevelType levels[] = {LevelFormat::Dense, LevelFormat::Compressed};
@@ -57,7 +54,7 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
     auto execute = [&] {
       MemRef result{};
       _mlir_ciface_spmv(&result, a.get(), &input, &y);
-      check(cudaDeviceSynchronize());
+      CHECK_CUDA(cudaDeviceSynchronize());
     };
     Event start, stop;
     for (int i = 0; i < warmup; ++i) {
@@ -67,15 +64,15 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
     for (int i = 0; i < repeat; ++i) {
       // The MLIR operation accumulates into y; reset it outside timing.
       std::fill(output, output + m, 0.0f);
-      check(cudaEventRecord(start.value, 0));
+      CHECK_CUDA(cudaEventRecord(start.value, 0));
       // Generated code creates its own streams. Complete the start event
       // before entering it; execute() waits for all work before the stop event.
-      check(cudaEventSynchronize(start.value));
+      CHECK_CUDA(cudaEventSynchronize(start.value));
       execute();
-      check(cudaEventRecord(stop.value, 0));
-      check(cudaEventSynchronize(stop.value));
+      CHECK_CUDA(cudaEventRecord(stop.value, 0));
+      CHECK_CUDA(cudaEventSynchronize(stop.value));
       float elapsed;
-      check(cudaEventElapsedTime(&elapsed, start.value, stop.value));
+      CHECK_CUDA(cudaEventElapsedTime(&elapsed, start.value, stop.value));
       samples[i] = elapsed;
     }
     return nullptr;
