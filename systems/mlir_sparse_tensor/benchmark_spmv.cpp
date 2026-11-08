@@ -6,8 +6,10 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "../common/cuda_utils.h"
+#include "../common/execution.h"
 
 using namespace mlir::sparse_tensor;
 using MemRef = StridedMemRefType<float, 1>;
@@ -26,6 +28,8 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
                                              double *samples, float *output) {
   static thread_local std::string error;
   try {
+    if (warmup < 0 || repeat < 1 || !samples)
+      throw std::invalid_argument("Invalid benchmark configuration");
     CHECK_CUDA(cudaSetDevice(device));
     mgpuSetDefaultDevice(device);
     uint64_t sizes[] = {uint64_t(m), uint64_t(n)}, mapping[] = {0, 1};
@@ -43,30 +47,25 @@ extern "C" const char *spruce_benchmark_spmv(int device, int m, int n,
         delSparseTensor);
     auto input = view(x, n);
     auto y = view(output, m);
-    auto execute = [&] {
-      MemRef result{};
-      _mlir_ciface_spmv(&result, a.get(), &input, &y);
-      CHECK_CUDA(cudaDeviceSynchronize());
-    };
-    CudaEvent start, stop;
-    for (int i = 0; i < warmup; ++i) {
-      std::fill(output, output + m, 0.0f);
-      execute();
-    }
-    for (int i = 0; i < repeat; ++i) {
-      // The MLIR operation accumulates into y; reset it outside timing.
-      std::fill(output, output + m, 0.0f);
-      CHECK_CUDA(cudaEventRecord(start.value, 0));
-      // Generated code creates its own streams. Complete the start event
-      // before entering it; execute() waits for all work before the stop event.
-      CHECK_CUDA(cudaEventSynchronize(start.value));
-      execute();
-      CHECK_CUDA(cudaEventRecord(stop.value, 0));
-      CHECK_CUDA(cudaEventSynchronize(stop.value));
-      float elapsed;
-      CHECK_CUDA(cudaEventElapsedTime(&elapsed, start.value, stop.value));
-      samples[i] = elapsed;
-    }
+    std::vector<float> timings(repeat);
+    Benchmark benchmark{warmup, repeat, timings.data()};
+    execute(
+        [&] {
+          MemRef result{};
+          _mlir_ciface_spmv(&result, a.get(), &input, &y);
+          CHECK_CUDA(cudaDeviceSynchronize());
+        },
+        0, &benchmark,
+        [&] {
+          // The MLIR operation accumulates into y; reset it outside timing.
+          std::fill(output, output + m, 0.0f);
+        },
+        [](cudaEvent_t start) {
+          // Generated code creates its own streams. Complete the start event
+          // before entering it; launch waits for all work before the stop event.
+          CHECK_CUDA(cudaEventSynchronize(start));
+        });
+    std::copy(timings.begin(), timings.end(), samples);
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();
