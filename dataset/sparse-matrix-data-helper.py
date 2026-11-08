@@ -13,6 +13,7 @@ from urllib.request import urlopen
 MATRICES_DIR = Path("dataset")
 SEED = 1234
 SDDMM_RANK = 32
+MTTKRP_RANK = 32
 
 # Add entries with a URL and an output filename ending in .mtx or .tns.
 # For tar archives, also specify the exact archive_member to extract.
@@ -27,6 +28,14 @@ MATRICES = [
         "url": "https://www.cise.ufl.edu/research/sparse/MM/HB/bcsstk17.tar.gz",
         "filename": "bcsstk17.mtx",
         "archive_member": "bcsstk17/bcsstk17.mtx",
+    },
+    {
+        "url": "https://s3.us-east-2.amazonaws.com/frostt/frostt_data/matrix-multiplication/matmul_4-4-4.tns.gz",
+        "filename": "matmul_4-4-4.tns",
+    },
+    {
+        "url": "https://s3.us-east-2.amazonaws.com/frostt/frostt_data/nell/nell-2.tns.gz",
+        "filename": "nell-2.tns",
     },
 ]
 
@@ -105,20 +114,30 @@ def generate_vector(path):
 
 
 def generate_factors(path):
-    """Save reproducible row-major float32 factors for weighted SDDMM."""
+    """Save reproducible row-major float32 factors for SDDMM or mode-0 MTTKRP."""
     import numpy as np
     from scipy.io import mminfo
 
-    rows, columns = mminfo(path)[:2]
+    if path.suffix == ".tns":
+        dimensions, _ = tensor_stats(path)
+        if len(dimensions) != 3:
+            raise ValueError(f"MTTKRP requires a third-order tensor: {path}")
+        rows, columns = dimensions[1:]
+        rank = MTTKRP_RANK
+        operation = "MTTKRP"
+    else:
+        rows, columns = mminfo(path)[:2]
+        rank = SDDMM_RANK
+        operation = "SDDMM"
     rng = np.random.default_rng(SEED)
     for name, size in (("B", rows), ("C", columns)):
         destination = path.with_name(f"{path.stem}_{name}.npy")
-        factor = rng.random((size, SDDMM_RANK), dtype=np.float32)
+        factor = rng.random((size, rank), dtype=np.float32)
         if is_downloaded(destination):
             existing = np.load(destination, allow_pickle=False)
             if (existing.shape != factor.shape or existing.dtype != np.float32
                     or not np.all(np.isfinite(existing))):
-                raise ValueError(f"Invalid SDDMM factor: {destination}")
+                raise ValueError(f"Invalid {operation} factor: {destination}")
             print(f"Already generated: {destination.name}")
             continue
 
@@ -137,7 +156,7 @@ def download():
             path = matrix_path(matrix)
             if path.suffix == ".mtx":
                 generate_vector(path)
-                generate_factors(path)
+            generate_factors(path)
         except (OSError, URLError, tarfile.TarError, EOFError, ValueError) as error:
             print(f"Failed to download {matrix['filename']}: {error}", file=sys.stderr)
             failed = True
@@ -167,7 +186,7 @@ def verify():
         paths = [path]
         if path.suffix == ".mtx":
             paths.append(path.with_name(f"{path.stem}_x.npy"))
-            paths.extend(path.with_name(f"{path.stem}_{name}.npy") for name in ("B", "C"))
+        paths.extend(path.with_name(f"{path.stem}_{name}.npy") for name in ("B", "C"))
         for candidate in paths:
             if is_downloaded(candidate):
                 print(f"OK: {candidate.name}")
@@ -175,7 +194,7 @@ def verify():
                 print(f"Missing or empty: {candidate.name}")
                 missing = True
     if not missing:
-        print("All matrices, input vectors, and dense factors are available.")
+        print("All matrices, tensors, input vectors, and dense factors are available.")
     return int(missing)
 
 
@@ -234,7 +253,7 @@ def matrix_market_info(path):
     raise ValueError("Missing Matrix Market dimensions")
 
 
-def tensor_info(path):
+def tensor_stats(path):
     """Scan a one-based FROSTT .tns file using memory proportional to its order."""
     dimensions = []
     entries = 0
@@ -259,6 +278,12 @@ def tensor_info(path):
             entries += 1
     if not entries:
         raise ValueError("No tensor entries found; cannot infer dimensions")
+    return dimensions, entries
+
+
+def tensor_info(path):
+    """Format the dimensions and entry count of a FROSTT tensor."""
+    dimensions, entries = tensor_stats(path)
     return {
         "Format": "FROSTT coordinate tensor",
         "Order": len(dimensions),
@@ -298,7 +323,7 @@ def main():
         epilog=f"Download directory: {MATRICES_DIR}",
     )
     commands = parser.add_subparsers(dest="command")
-    commands.add_parser("download", help="Download all matrices in the list")
+    commands.add_parser("download", help="Download all matrices and tensors and generate inputs")
     commands.add_parser("clean", help="Delete downloaded data, preserving this script")
     commands.add_parser("verify", help="Check that every listed matrix exists and is nonempty")
     commands.add_parser("info", help="Read metadata from downloaded matrix and tensor files")

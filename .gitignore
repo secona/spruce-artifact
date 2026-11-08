@@ -1,5 +1,6 @@
-# Downloaded sparse matrices
+# Downloaded sparse matrices and tensors
 *.mtx
+*.tns
 *.npy
 
 **/__pycache__/
