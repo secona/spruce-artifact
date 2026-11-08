@@ -28,10 +28,14 @@ spruce_benchmark_spmv(int device, int m, int n, int64_t nnz, const int *offsets,
     CHECK_CUDA(cudaMemcpy(input.value, x, size_t(n) * sizeof(float),
                           cudaMemcpyHostToDevice));
     Benchmark benchmark{warmup, repetitions, samples};
-    spmv(m, n, nnz, static_cast<int *>(rows.value),
-         static_cast<int *>(cols.value), static_cast<float *>(data.value),
-         static_cast<float *>(input.value), static_cast<float *>(output.value),
-         stream.value, &benchmark);
+    execute(
+        [&] {
+          spmv(m, n, nnz, static_cast<int *>(rows.value),
+               static_cast<int *>(cols.value), static_cast<float *>(data.value),
+               static_cast<float *>(input.value),
+               static_cast<float *>(output.value), stream.value);
+        },
+        stream.value, &benchmark);
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();

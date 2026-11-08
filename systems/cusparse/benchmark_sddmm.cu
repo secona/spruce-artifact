@@ -33,10 +33,16 @@ spruce_benchmark_sddmm(int device, int m, int n, int rank, int64_t nnz,
     CHECK_CUDA(cudaMemcpy(right.value, c, size_t(n) * rank * sizeof(float),
                           cudaMemcpyHostToDevice));
     Benchmark benchmark{warmup, repetitions, samples};
-    sddmm(m, n, rank, nnz, static_cast<int *>(rows.value),
-          static_cast<int *>(cols.value), static_cast<float *>(data.value),
-          static_cast<float *>(left.value), static_cast<float *>(right.value),
-          static_cast<float *>(output.value), stream.value, &benchmark);
+    execute(
+        [&] {
+          sddmm(m, n, rank, nnz, static_cast<int *>(rows.value),
+                static_cast<int *>(cols.value),
+                static_cast<float *>(data.value),
+                static_cast<float *>(left.value),
+                static_cast<float *>(right.value),
+                static_cast<float *>(output.value), stream.value);
+        },
+        stream.value, &benchmark);
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();

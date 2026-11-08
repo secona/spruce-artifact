@@ -12,8 +12,9 @@
 // Inputs and preallocated outputs must not overlap.
 namespace spruce::cusparse {
 
-// Optional steady-state CUDA-event measurements, in milliseconds.
-// samples points to space for repetitions floats, owned by the host caller.
+// Whole-call CUDA-event measurements used by the benchmark wrappers, in
+// milliseconds. samples points to space for repetitions floats, owned by the
+// host caller.
 struct Benchmark {
   int warmup;
   int repetitions;
@@ -22,14 +23,13 @@ struct Benchmark {
 
 // y[i] = sum_j A[i,j] * x[j]. Caller allocates y (m elements).
 void spmv(int m, int n, int64_t nnz, int *offsets, int *columns, float *values,
-          float *x, float *y, cudaStream_t stream = nullptr,
-          const Benchmark *benchmark = nullptr);
+          float *x, float *y, cudaStream_t stream = nullptr);
 
 // d[p] = a[p] * dot(B[i,:], C[j,:]) for CSR entry p at (i,j).
 // Caller allocates d (nnz elements); output uses the input CSR structure.
 void sddmm(int m, int n, int rank, int64_t nnz, int *offsets, int *columns,
            float *a, float *b, float *c, float *d,
-           cudaStream_t stream = nullptr, const Benchmark *benchmark = nullptr);
+           cudaStream_t stream = nullptr);
 
 // C = A (m x k) * B (k x n). Output references are host variables.
 // On success, caller owns the three output arrays and frees them with cudaFree.
