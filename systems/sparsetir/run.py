@@ -32,10 +32,12 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
         c = load_dense(paths[2], a.shape[1], 2)
         if b.shape[1] != c.shape[1]:
             raise ValueError("SDDMM factor ranks must match")
-        inputs.update({
-            "B": InputInfo(str(paths[1].resolve()), b.shape),
-            "C": InputInfo(str(paths[2].resolve()), c.shape),
-        })
+        inputs.update(
+            {
+                "B": InputInfo(str(paths[1].resolve()), b.shape),
+                "C": InputInfo(str(paths[2].resolve()), c.shape),
+            }
+        )
         output = np.zeros(a.nnz, dtype=np.float32)
         arrays = [a.data, b, c, output, a.indptr, a.indices]
         shape = (*a.shape, b.shape[1], a.nnz)
@@ -59,10 +61,17 @@ def run(operation, paths, repeat, device, warmup, gpu_arch):
         compiled[operation](*args)
     dev.sync()
     run_utc = datetime.now(timezone.utc).isoformat()
-    measurements = compiled.time_evaluator(operation, dev, number=1, repeat=repeat)(*args)
+    measurements = compiled.time_evaluator(operation, dev, number=1, repeat=repeat)(
+        *args
+    )
     result = BenchmarkResult(
-        run_utc=run_utc, backend="sparsetir", operation=operation, inputs=inputs,
-        device=device, warmup=warmup, samples_ms=[seconds * 1000 for seconds in measurements.results],
+        run_utc=run_utc,
+        backend="sparsetir",
+        operation=operation,
+        inputs=inputs,
+        device=device,
+        warmup=warmup,
+        samples_ms=[seconds * 1000 for seconds in measurements.results],
         scope="execution",
     )
     result.print_summary()

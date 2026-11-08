@@ -5,9 +5,12 @@ from tvm.script import tir as T
 
 def spmv(m, n, nnz):
     @T.prim_func
-    def main(a: T.handle, x: T.handle, y: T.handle,
-             indptr: T.handle, indices: T.handle):
-        T.func_attr({"global_symbol": "spmv", "tir.noalias": True, "sparse_tir_level": 2})
+    def main(
+        a: T.handle, x: T.handle, y: T.handle, indptr: T.handle, indices: T.handle
+    ):
+        T.func_attr(
+            {"global_symbol": "spmv", "tir.noalias": True, "sparse_tir_level": 2}
+        )
         I = T.dense_fixed(m)
         J = T.sparse_variable(I, (n, nnz), (indptr, indices), "int32")
         N = T.dense_fixed(n)

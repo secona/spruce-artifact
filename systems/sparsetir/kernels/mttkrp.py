@@ -5,10 +5,19 @@ from tvm.script import tir as T
 
 def mttkrp(m, n, p, rank, nnz_j, nnz_k):
     @T.prim_func
-    def main(a: T.handle, b: T.handle, c: T.handle, d: T.handle,
-             indptr_j: T.handle, indices_j: T.handle,
-             indptr_k: T.handle, indices_k: T.handle):
-        T.func_attr({"global_symbol": "mttkrp", "tir.noalias": True, "sparse_tir_level": 2})
+    def main(
+        a: T.handle,
+        b: T.handle,
+        c: T.handle,
+        d: T.handle,
+        indptr_j: T.handle,
+        indices_j: T.handle,
+        indptr_k: T.handle,
+        indices_k: T.handle,
+    ):
+        T.func_attr(
+            {"global_symbol": "mttkrp", "tir.noalias": True, "sparse_tir_level": 2}
+        )
         I = T.dense_fixed(m)
         J = T.sparse_variable(I, (n, nnz_j), (indptr_j, indices_j), "int32")
         K = T.sparse_variable(J, (p, nnz_k), (indptr_k, indices_k), "int32")

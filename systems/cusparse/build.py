@@ -37,7 +37,7 @@ def build(operation, gpu_arch):
             "-o",
             str(library),
         ],
-        check=True
+        check=True,
     )
 
     return library

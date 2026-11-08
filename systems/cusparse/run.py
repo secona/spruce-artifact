@@ -15,14 +15,16 @@ def main():
 
     if args.operation is None or args.operation == "spmv":
         from benchmarks.spmv import config
-        for (A_filename, x_filename) in config.CASES:
+
+        for A_filename, x_filename in config.CASES:
             A_path = Path("dataset") / A_filename
             x_path = Path("dataset") / x_filename
             run_spmv(A_path, x_path, args.repeat, args.device, args.warmup)
 
     if args.operation is None or args.operation == "sddmm":
         from benchmarks.sddmm import config
-        for (A_filename, B_filename, C_filename) in config.CASES:
+
+        for A_filename, B_filename, C_filename in config.CASES:
             A_path = Path("dataset") / A_filename
             B_path = Path("dataset") / B_filename
             C_path = Path("dataset") / C_filename
@@ -30,7 +32,8 @@ def main():
 
     if args.operation is None or args.operation == "spgemm":
         from benchmarks.spgemm import config
-        for (A_filename, B_filename) in config.CASES:
+
+        for A_filename, B_filename in config.CASES:
             A_path = Path("dataset") / A_filename
             B_path = Path("dataset") / B_filename
             run_spgemm(A_path, B_path, args.repeat, args.device, args.warmup)
@@ -64,14 +67,31 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     benchmark = library.spruce_benchmark_spmv
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
-        ct.c_int, ct.c_int, ct.c_int, ct.c_int64,
-        ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p,
-        ct.c_int, ct.c_int, ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int64,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_void_p,
     ]
 
     error = benchmark(
-        device, m, n, A.nnz, offsets.ctypes.data, columns.ctypes.data,
-        values.ctypes.data, x.ctypes.data, warmup, repeat, samples.ctypes.data,
+        device,
+        m,
+        n,
+        A.nnz,
+        offsets.ctypes.data,
+        columns.ctypes.data,
+        values.ctypes.data,
+        x.ctypes.data,
+        warmup,
+        repeat,
+        samples.ctypes.data,
     )
     if error:
         raise RuntimeError(error.decode())
@@ -132,15 +152,35 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
     benchmark = library.spruce_benchmark_sddmm
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
-        ct.c_int, ct.c_int, ct.c_int, ct.c_int, ct.c_int64,
-        ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p,
-        ct.c_int, ct.c_int, ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int64,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_void_p,
     ]
 
     error = benchmark(
-        device, m, n, rank, A.nnz, offsets.ctypes.data, columns.ctypes.data,
-        values.ctypes.data, B.ctypes.data, C.ctypes.data,
-        warmup, repeat, samples.ctypes.data,
+        device,
+        m,
+        n,
+        rank,
+        A.nnz,
+        offsets.ctypes.data,
+        columns.ctypes.data,
+        values.ctypes.data,
+        B.ctypes.data,
+        C.ctypes.data,
+        warmup,
+        repeat,
+        samples.ctypes.data,
     )
     if error:
         raise RuntimeError(error.decode())
@@ -200,17 +240,39 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     benchmark = library.spruce_benchmark_spgemm
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
-        ct.c_int, ct.c_int, ct.c_int, ct.c_int,
-        ct.c_int64, ct.c_void_p, ct.c_void_p, ct.c_void_p,
-        ct.c_int64, ct.c_void_p, ct.c_void_p, ct.c_void_p,
-        ct.c_int, ct.c_int, ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int64,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_int64,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_int,
+        ct.c_int,
+        ct.c_void_p,
     ]
 
     error = benchmark(
-        device, m, k, n,
-        A.nnz, offsets_a.ctypes.data, columns_a.ctypes.data, values_a.ctypes.data,
-        B.nnz, offsets_b.ctypes.data, columns_b.ctypes.data, values_b.ctypes.data,
-        warmup, repeat, samples.ctypes.data,
+        device,
+        m,
+        k,
+        n,
+        A.nnz,
+        offsets_a.ctypes.data,
+        columns_a.ctypes.data,
+        values_a.ctypes.data,
+        B.nnz,
+        offsets_b.ctypes.data,
+        columns_b.ctypes.data,
+        values_b.ctypes.data,
+        warmup,
+        repeat,
+        samples.ctypes.data,
     )
     if error:
         raise RuntimeError(error.decode())

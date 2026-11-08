@@ -14,14 +14,23 @@ OPERATIONS = ("spgemm",)
 
 class HostCsr(ct.Structure):
     _fields_ = [
-        ("rows", ct.c_int), ("cols", ct.c_int), ("nnz", ct.c_int64),
-        ("offsets", ct.c_void_p), ("columns", ct.c_void_p), ("values", ct.c_void_p),
+        ("rows", ct.c_int),
+        ("cols", ct.c_int),
+        ("nnz", ct.c_int64),
+        ("offsets", ct.c_void_p),
+        ("columns", ct.c_void_p),
+        ("values", ct.c_void_p),
     ]
 
     @classmethod
     def from_matrix(cls, matrix):
-        return cls(*matrix.shape, matrix.nnz, matrix.indptr.ctypes.data,
-                   matrix.indices.ctypes.data, matrix.data.ctypes.data)
+        return cls(
+            *matrix.shape,
+            matrix.nnz,
+            matrix.indptr.ctypes.data,
+            matrix.indices.ctypes.data,
+            matrix.data.ctypes.data,
+        )
 
 
 def load_matrix(path, np, io, sparse):
@@ -32,7 +41,9 @@ def load_matrix(path, np, io, sparse):
     matrix.sum_duplicates()
     matrix.sort_indices()
     if min(matrix.shape) < 1 or max(*matrix.shape, matrix.nnz) > 2**31 - 1:
-        raise ValueError("Matrix dimensions must be positive; dimensions and nnz must fit int32")
+        raise ValueError(
+            "Matrix dimensions must be positive; dimensions and nnz must fit int32"
+        )
     if not np.all(np.isfinite(matrix.data)):
         raise ValueError(f"Matrix values must be finite float32 numbers: {path}")
     matrix.indptr = np.ascontiguousarray(matrix.indptr, dtype=np.int32)
@@ -48,23 +59,38 @@ def main():
     output_path = Path("generated/nacho") / "spgemm.csv"
 
     from benchmarks.spgemm import config
+
     for A_filename, B_filename in config.CASES:
         A_path = Path("dataset") / A_filename
         B_path = Path("dataset") / B_filename
-        run_spgemm(A_path, B_path, args.repeat, args.device, args.warmup,
-                   blocks, threads_per_block, output_path)
+        run_spgemm(
+            A_path,
+            B_path,
+            args.repeat,
+            args.device,
+            args.warmup,
+            blocks,
+            threads_per_block,
+            output_path,
+        )
 
 
-def run_spgemm(A_path, B_path, repeat, device, warmup, blocks, threads_per_block, output_path):
+def run_spgemm(
+    A_path, B_path, repeat, device, warmup, blocks, threads_per_block, output_path
+):
     library_path = Path("generated/nacho") / "libnacho_spgemm.so"
     if not library_path.is_file():
-        raise RuntimeError(f"Missing benchmark library: {library_path}\n"
-                           "Build it first: python -m systems.nacho.build")
+        raise RuntimeError(
+            f"Missing benchmark library: {library_path}\n"
+            "Build it first: python -m systems.nacho.build"
+        )
     try:
         import numpy as np
         from scipy import io, sparse
     except ImportError as error:
-        raise RuntimeError(f"Missing dependency: {error}. Install numpy and scipy.") from error
+        raise RuntimeError(
+            f"Missing dependency: {error}. Install numpy and scipy."
+        ) from error
 
     a = load_matrix(A_path, np, io, sparse)
     b = load_matrix(B_path, np, io, sparse)
@@ -76,16 +102,31 @@ def run_spgemm(A_path, B_path, repeat, device, warmup, blocks, threads_per_block
     try:
         benchmark = library.spruce_benchmark_spgemm
     except AttributeError as error:
-        raise RuntimeError("Rebuild the library: python -m systems.nacho.build") from error
+        raise RuntimeError(
+            "Rebuild the library: python -m systems.nacho.build"
+        ) from error
     benchmark.restype = ct.c_char_p
     benchmark.argtypes = [
-        ct.c_int, ct.POINTER(HostCsr), ct.POINTER(HostCsr),
-        ct.c_int, ct.c_int, ct.c_int, ct.c_int, ct.c_void_p,
+        ct.c_int,
+        ct.POINTER(HostCsr),
+        ct.POINTER(HostCsr),
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_int,
+        ct.c_void_p,
     ]
     run_utc = datetime.now(timezone.utc).isoformat()
-    error = benchmark(device, ct.byref(host_a), ct.byref(host_b),
-                      blocks, threads_per_block, warmup, repeat,
-                      samples.ctypes.data)
+    error = benchmark(
+        device,
+        ct.byref(host_a),
+        ct.byref(host_b),
+        blocks,
+        threads_per_block,
+        warmup,
+        repeat,
+        samples.ctypes.data,
+    )
     if error:
         raise RuntimeError(error.decode())
     result = BenchmarkResult(

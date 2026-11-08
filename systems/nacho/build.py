@@ -39,7 +39,7 @@ def main():
             "-o",
             str(library),
         ],
-        check=True
+        check=True,
     )
     print(library)
 
@@ -65,10 +65,12 @@ def get_nacho_compiler_exe():
                 *shlex.split(os.environ.get("CXX", "c++")),
                 "-O2",
                 "-std=c++20",
-                "-I", str(nacho_dir / "include"),
+                "-I",
+                str(nacho_dir / "include"),
                 str(backend_dir / "compiler.cpp"),
                 str(library),
-                "-o", str(compiler),
+                "-o",
+                str(compiler),
             ],
             check=True,
         )

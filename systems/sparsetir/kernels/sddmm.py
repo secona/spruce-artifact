@@ -5,9 +5,17 @@ from tvm.script import tir as T
 
 def sddmm(m, n, rank, nnz):
     @T.prim_func
-    def main(a: T.handle, b: T.handle, c: T.handle, d: T.handle,
-             indptr: T.handle, indices: T.handle):
-        T.func_attr({"global_symbol": "sddmm", "tir.noalias": True, "sparse_tir_level": 2})
+    def main(
+        a: T.handle,
+        b: T.handle,
+        c: T.handle,
+        d: T.handle,
+        indptr: T.handle,
+        indices: T.handle,
+    ):
+        T.func_attr(
+            {"global_symbol": "sddmm", "tir.noalias": True, "sparse_tir_level": 2}
+        )
         I = T.dense_fixed(m)
         J = T.sparse_variable(I, (n, nnz), (indptr, indices), "int32")
         N = T.dense_fixed(n)
