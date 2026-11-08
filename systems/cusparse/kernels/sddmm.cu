@@ -15,7 +15,7 @@ void sddmm(int m, int n, int rank, int64_t nnz, int *offsets, int *columns,
            float *a, float *b, float *c, float *d, cudaStream_t stream,
            const Benchmark *benchmark) {
   Handle handle;
-  create_handle(handle, stream);
+  cusparse_create_handle(handle, stream);
   DenseMatrix left, right;
   SparseMatrix output;
   CHECK_CUSPARSE(cusparseCreateDnMat(&left.value, m, rank, rank, b, CUDA_R_32F,
@@ -23,7 +23,7 @@ void sddmm(int m, int n, int rank, int64_t nnz, int *offsets, int *columns,
   // C is n x rank, so the sampled product is B * transpose(C).
   CHECK_CUSPARSE(cusparseCreateDnMat(&right.value, n, rank, rank, c, CUDA_R_32F,
                                      CUSPARSE_ORDER_ROW));
-  create_csr(output, m, n, nnz, offsets, columns, d);
+  cusparse_create_csr(output, m, n, nnz, offsets, columns, d);
   const float alpha = 1.0f, beta = 0.0f;
   size_t bytes = 0;
   CHECK_CUSPARSE(cusparseSDDMM_bufferSize(

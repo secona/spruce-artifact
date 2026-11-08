@@ -54,19 +54,25 @@ void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
     launch();
     return;
   }
+
   if (benchmark->warmup < 0 || benchmark->repetitions < 1 ||
       !benchmark->samples)
     throw std::invalid_argument("Invalid benchmark configuration");
+
   CudaEvent start, stop;
+
   CHECK_CUDA(cudaEventCreate(&start.value));
   CHECK_CUDA(cudaEventCreate(&stop.value));
+
   for (int i = 0; i < benchmark->warmup; ++i)
     launch();
+
   CHECK_CUDA(cudaStreamSynchronize(stream));
   for (int i = 0; i < benchmark->repetitions; ++i) {
     CHECK_CUDA(cudaEventRecord(start.value, stream));
     launch();
     CHECK_CUDA(cudaEventRecord(stop.value, stream));
+
     CHECK_CUDA(cudaEventSynchronize(stop.value));
     CHECK_CUDA(
         cudaEventElapsedTime(&benchmark->samples[i], start.value, stop.value));
@@ -85,15 +91,16 @@ struct Buffer : Resource<void *, cudaFree> {
   }
 };
 
-inline void create_csr(SparseMatrix &matrix, int rows, int cols, int64_t nnz,
-                       int *offsets, int *columns, float *values) {
+inline void cusparse_create_csr(SparseMatrix &matrix, int rows, int cols,
+                                int64_t nnz, int *offsets, int *columns,
+                                float *values) {
   CHECK_CUSPARSE(cusparseCreateCsr(&matrix.value, rows, cols, nnz, offsets,
                                    columns, values, CUSPARSE_INDEX_32I,
                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
                                    CUDA_R_32F));
 }
 
-inline void create_handle(Handle &handle, cudaStream_t stream) {
+inline void cusparse_create_handle(Handle &handle, cudaStream_t stream) {
   CHECK_CUSPARSE(cusparseCreate(&handle.value));
   CHECK_CUSPARSE(cusparseSetStream(handle.value, stream));
   CHECK_CUSPARSE(

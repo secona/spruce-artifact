@@ -6,10 +6,10 @@ using namespace detail;
 void spmv(int m, int n, int64_t nnz, int *offsets, int *columns, float *values,
           float *x, float *y, cudaStream_t stream, const Benchmark *benchmark) {
   Handle handle;
-  create_handle(handle, stream);
+  cusparse_create_handle(handle, stream);
   SparseMatrix a;
   DenseVector b, c;
-  create_csr(a, m, n, nnz, offsets, columns, values);
+  cusparse_create_csr(a, m, n, nnz, offsets, columns, values);
   CHECK_CUSPARSE(cusparseCreateDnVec(&b.value, n, x, CUDA_R_32F));
   CHECK_CUSPARSE(cusparseCreateDnVec(&c.value, m, y, CUDA_R_32F));
   const float alpha = 1.0f, beta = 0.0f;
