@@ -33,3 +33,14 @@ template <typename T, auto destroy> struct Resource {
 };
 
 using CudaEvent = Resource<cudaEvent_t, cudaEventDestroy>;
+
+struct Buffer : Resource<void *, cudaFree> {
+  explicit Buffer(size_t bytes) {
+    CHECK_CUDA(cudaMalloc(&value, bytes ? bytes : 1));
+  }
+  template <typename T> T *release() {
+    auto result = static_cast<T *>(value);
+    value = nullptr;
+    return result;
+  }
+};
