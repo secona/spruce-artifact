@@ -7,7 +7,7 @@
 | cuSPARSE | ✅ | ✅ | ✅ | ❌ |
 | MLIR Sparse Tensor | ✅ | ❌ | ❌ | ✅ |
 | Nacho | ❌ | ❌ | ✅ | ❌ |
-<!-- | SparseTIR | ✅ | ✅ | ❌ | ⏸️ | -->
+| SparseTIR | ✅ | ✅ | ❌ | ✅ |
 
 ## Setup
 
@@ -43,6 +43,17 @@ and `libmlir_cuda_runtime`.
 
 To use an uninstalled LLVM build, set `LLVM_DIR` to its build directory and
 `MLIR_INCLUDE_DIR` to `/path/to/llvm-project/mlir/include` for the source headers.
+
+## SparseTIR
+
+```sh
+bash build_deps.sh sparsetir
+export PYTHONPATH="$PWD/third_party/sparsetir/python${PYTHONPATH:+:$PYTHONPATH}"
+python -m systems.sparsetir.build
+python -m systems.sparsetir.run --operation spmv
+python -m systems.sparsetir.run --operation sddmm
+python -m systems.sparsetir.run --operation mttkrp
+```
 
 ## Plot Results
 
