@@ -2,9 +2,6 @@
 #include "common.cuh"
 #include <string>
 
-using namespace spruce::cusparse;
-using namespace spruce::cusparse::detail;
-
 extern "C" const char *spruce_benchmark_spgemm(
     int device, int m, int k, int n, int64_t nnz_a, const int *offsets_a,
     const int *columns_a, const float *values_a, int64_t nnz_b,

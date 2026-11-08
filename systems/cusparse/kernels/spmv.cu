@@ -1,8 +1,5 @@
 #include "common.cuh"
 
-namespace spruce::cusparse {
-using namespace detail;
-
 void spmv(int m, int n, int64_t nnz, int *offsets, int *columns, float *values,
           float *x, float *y, cudaStream_t stream) {
   Handle handle;
@@ -25,5 +22,3 @@ void spmv(int m, int n, int64_t nnz, int *offsets, int *columns, float *values,
       &beta, c.value, CUDA_R_32F, CUSPARSE_SPMV_ALG_DEFAULT, buffer.value));
   CHECK_CUDA(cudaStreamSynchronize(stream));
 }
-
-} // namespace spruce::cusparse

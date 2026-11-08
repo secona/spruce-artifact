@@ -10,7 +10,6 @@
 // Device arrays, float32 values, zero-based int32 CSR indices. Dense matrices
 // are row-major. Calls complete on the supplied stream before returning.
 // Inputs and preallocated outputs must not overlap.
-namespace spruce::cusparse {
 
 // Whole-call CUDA-event measurements used by the benchmark wrappers, in
 // milliseconds. samples points to space for repetitions floats, owned by the
@@ -37,10 +36,6 @@ void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
             float *values_a, int64_t nnz_b, int *offsets_b, int *columns_b,
             float *values_b, int *&offsets_c, int *&columns_c, float *&values_c,
             int64_t &nnz_c, cudaStream_t stream = nullptr);
-
-} // namespace spruce::cusparse
-
-namespace spruce::cusparse::detail {
 
 using Handle = Resource<cusparseHandle_t, cusparseDestroy>;
 using SparseMatrix = Resource<cusparseSpMatDescr_t, cusparseDestroySpMat>;
@@ -106,5 +101,3 @@ inline void cusparse_create_handle(Handle &handle, cudaStream_t stream) {
   CHECK_CUSPARSE(
       cusparseSetPointerMode(handle.value, CUSPARSE_POINTER_MODE_HOST));
 }
-
-} // namespace spruce::cusparse::detail

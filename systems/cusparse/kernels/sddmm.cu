@@ -1,8 +1,5 @@
 #include "common.cuh"
 
-namespace spruce::cusparse {
-using namespace detail;
-
 namespace {
 __global__ void weight(int64_t nnz, const float *a, float *d) {
   for (int64_t p = int64_t(blockIdx.x) * blockDim.x + threadIdx.x; p < nnz;
@@ -47,5 +44,3 @@ void sddmm(int m, int n, int rank, int64_t nnz, int *offsets, int *columns,
   }
   CHECK_CUDA(cudaStreamSynchronize(stream));
 }
-
-} // namespace spruce::cusparse

@@ -1,9 +1,6 @@
 #include "common.cuh"
 #include <limits>
 
-namespace spruce::cusparse {
-using namespace detail;
-
 void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
             float *values_a, int64_t nnz_b, int *offsets_b, int *columns_b,
             float *values_b, int *&offsets_c, int *&columns_c, float *&values_c,
@@ -65,5 +62,3 @@ void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
   values_c = values.release<float>();
   nnz_c = count;
 }
-
-} // namespace spruce::cusparse
