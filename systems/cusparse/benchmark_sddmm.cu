@@ -19,7 +19,6 @@ spruce_benchmark_sddmm(int device, int m, int n, int rank, int64_t nnz,
     Buffer cols(size_t(nnz) * sizeof(int)), data(size_t(nnz) * sizeof(float));
     Buffer left(size_t(m) * rank * sizeof(float));
     Buffer right(size_t(n) * rank * sizeof(float));
-    Buffer output(size_t(nnz) * sizeof(float));
     CHECK_CUDA(cudaMemcpy(rows.value, offsets, (size_t(m) + 1) * sizeof(int),
                           cudaMemcpyHostToDevice));
     if (nnz) {
@@ -35,6 +34,7 @@ spruce_benchmark_sddmm(int device, int m, int n, int rank, int64_t nnz,
     Benchmark benchmark{warmup, repetitions, samples};
     execute(
         [&] {
+          Buffer output(size_t(nnz) * sizeof(float));
           sddmm(m, n, rank, nnz, static_cast<int *>(rows.value),
                 static_cast<int *>(cols.value),
                 static_cast<float *>(data.value),

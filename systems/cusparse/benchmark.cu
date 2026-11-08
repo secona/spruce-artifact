@@ -16,7 +16,7 @@ spruce_benchmark_spmv(int device, int m, int n, int64_t nnz, const int *offsets,
     CHECK_CUDA(cudaStreamCreateWithFlags(&stream.value, cudaStreamNonBlocking));
     Buffer rows((size_t(m) + 1) * sizeof(int));
     Buffer cols(size_t(nnz) * sizeof(int)), data(size_t(nnz) * sizeof(float));
-    Buffer input(size_t(n) * sizeof(float)), output(size_t(m) * sizeof(float));
+    Buffer input(size_t(n) * sizeof(float));
     CHECK_CUDA(cudaMemcpy(rows.value, offsets, (size_t(m) + 1) * sizeof(int),
                           cudaMemcpyHostToDevice));
     if (nnz) {
@@ -30,6 +30,7 @@ spruce_benchmark_spmv(int device, int m, int n, int64_t nnz, const int *offsets,
     Benchmark benchmark{warmup, repetitions, samples};
     execute(
         [&] {
+          Buffer output(size_t(m) * sizeof(float));
           spmv(m, n, nnz, static_cast<int *>(rows.value),
                static_cast<int *>(cols.value), static_cast<float *>(data.value),
                static_cast<float *>(input.value),
