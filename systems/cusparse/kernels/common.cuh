@@ -5,6 +5,8 @@
 #include <cusparse.h>
 #include <stdexcept>
 
+#include "../../common/cuda_utils.h"
+
 // Device arrays, float32 values, zero-based int32 CSR indices. Dense matrices
 // are row-major. Calls complete on the supplied stream before returning.
 // Inputs and preallocated outputs must not overlap.
@@ -40,16 +42,6 @@ void spgemm(int m, int k, int n, int64_t nnz_a, int *offsets_a, int *columns_a,
 
 namespace spruce::cusparse::detail {
 
-inline void check(cudaError_t status) {
-  if (status != cudaSuccess)
-    throw std::runtime_error(cudaGetErrorString(status));
-}
-
-inline void check(cusparseStatus_t status) {
-  if (status != CUSPARSE_STATUS_SUCCESS)
-    throw std::runtime_error(cusparseGetErrorString(status));
-}
-
 template <typename T, auto destroy> struct Resource {
   T value = nullptr;
   Resource() = default;
@@ -78,17 +70,17 @@ void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
       !benchmark->samples)
     throw std::invalid_argument("Invalid benchmark configuration");
   Event start, stop;
-  check(cudaEventCreate(&start.value));
-  check(cudaEventCreate(&stop.value));
+  CHECK_CUDA(cudaEventCreate(&start.value));
+  CHECK_CUDA(cudaEventCreate(&stop.value));
   for (int i = 0; i < benchmark->warmup; ++i)
     launch();
-  check(cudaStreamSynchronize(stream));
+  CHECK_CUDA(cudaStreamSynchronize(stream));
   for (int i = 0; i < benchmark->repetitions; ++i) {
-    check(cudaEventRecord(start.value, stream));
+    CHECK_CUDA(cudaEventRecord(start.value, stream));
     launch();
-    check(cudaEventRecord(stop.value, stream));
-    check(cudaEventSynchronize(stop.value));
-    check(
+    CHECK_CUDA(cudaEventRecord(stop.value, stream));
+    CHECK_CUDA(cudaEventSynchronize(stop.value));
+    CHECK_CUDA(
         cudaEventElapsedTime(&benchmark->samples[i], start.value, stop.value));
   }
 }
@@ -96,7 +88,7 @@ void execute(Function launch, cudaStream_t stream, const Benchmark *benchmark) {
 struct Buffer : Resource<void *, cudaFree> {
   explicit Buffer(size_t bytes) {
     // Keep a non-null pointer for cuSPARSE execution even for zero scratch.
-    check(cudaMalloc(&value, bytes ? bytes : 1));
+    CHECK_CUDA(cudaMalloc(&value, bytes ? bytes : 1));
   }
   template <typename T> T *release() {
     auto result = static_cast<T *>(value);
@@ -107,15 +99,17 @@ struct Buffer : Resource<void *, cudaFree> {
 
 inline void create_csr(SparseMatrix &matrix, int rows, int cols, int64_t nnz,
                        int *offsets, int *columns, float *values) {
-  check(cusparseCreateCsr(&matrix.value, rows, cols, nnz, offsets, columns,
-                          values, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                          CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+  CHECK_CUSPARSE(cusparseCreateCsr(&matrix.value, rows, cols, nnz, offsets,
+                                   columns, values, CUSPARSE_INDEX_32I,
+                                   CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
+                                   CUDA_R_32F));
 }
 
 inline void create_handle(Handle &handle, cudaStream_t stream) {
-  check(cusparseCreate(&handle.value));
-  check(cusparseSetStream(handle.value, stream));
-  check(cusparseSetPointerMode(handle.value, CUSPARSE_POINTER_MODE_HOST));
+  CHECK_CUSPARSE(cusparseCreate(&handle.value));
+  CHECK_CUSPARSE(cusparseSetStream(handle.value, stream));
+  CHECK_CUSPARSE(
+      cusparseSetPointerMode(handle.value, CUSPARSE_POINTER_MODE_HOST));
 }
 
 } // namespace spruce::cusparse::detail

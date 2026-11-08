@@ -12,30 +12,36 @@ extern "C" const char *spruce_benchmark_spgemm(
     int warmup, int repetitions, float *samples) {
   static thread_local std::string error;
   try {
-    check(cudaSetDevice(device));
+    CHECK_CUDA(cudaSetDevice(device));
     Resource<cudaStream_t, cudaStreamDestroy> stream;
-    check(cudaStreamCreateWithFlags(&stream.value, cudaStreamNonBlocking));
+    CHECK_CUDA(cudaStreamCreateWithFlags(&stream.value, cudaStreamNonBlocking));
     Buffer rows_a((size_t(m) + 1) * sizeof(int));
     Buffer cols_a(size_t(nnz_a) * sizeof(int)),
         data_a(size_t(nnz_a) * sizeof(float));
     Buffer rows_b((size_t(k) + 1) * sizeof(int));
     Buffer cols_b(size_t(nnz_b) * sizeof(int)),
         data_b(size_t(nnz_b) * sizeof(float));
-    check(cudaMemcpy(rows_a.value, offsets_a, (size_t(m) + 1) * sizeof(int),
-                     cudaMemcpyHostToDevice));
-    check(cudaMemcpy(rows_b.value, offsets_b, (size_t(k) + 1) * sizeof(int),
-                     cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(rows_a.value, offsets_a,
+                          (size_t(m) + 1) * sizeof(int),
+                          cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(rows_b.value, offsets_b,
+                          (size_t(k) + 1) * sizeof(int),
+                          cudaMemcpyHostToDevice));
     if (nnz_a) {
-      check(cudaMemcpy(cols_a.value, columns_a, size_t(nnz_a) * sizeof(int),
-                       cudaMemcpyHostToDevice));
-      check(cudaMemcpy(data_a.value, values_a, size_t(nnz_a) * sizeof(float),
-                       cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(cols_a.value, columns_a,
+                            size_t(nnz_a) * sizeof(int),
+                            cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(data_a.value, values_a,
+                            size_t(nnz_a) * sizeof(float),
+                            cudaMemcpyHostToDevice));
     }
     if (nnz_b) {
-      check(cudaMemcpy(cols_b.value, columns_b, size_t(nnz_b) * sizeof(int),
-                       cudaMemcpyHostToDevice));
-      check(cudaMemcpy(data_b.value, values_b, size_t(nnz_b) * sizeof(float),
-                       cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(cols_b.value, columns_b,
+                            size_t(nnz_b) * sizeof(int),
+                            cudaMemcpyHostToDevice));
+      CHECK_CUDA(cudaMemcpy(data_b.value, values_b,
+                            size_t(nnz_b) * sizeof(float),
+                            cudaMemcpyHostToDevice));
     }
     Benchmark benchmark{warmup, repetitions, samples};
     execute(
