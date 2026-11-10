@@ -4,7 +4,7 @@
 
 | System | SpMV | SDDMM | SpGEMM | MTTKRP |
 | --- | :---: | :---: | :---: | :---: |
-| cuSPARSE | ✅ | ✅ | ✅ | ❌ |
+| cuSPARSE | ✅ | ✅ | ✅ | ✅ |
 | MLIR Sparse Tensor | ✅ | ❌ | ❌ | ✅ |
 | Nacho | ❌ | ❌ | ✅ | ❌ |
 | SparseTIR | ✅ | ✅ | ❌ | ✅ |
@@ -27,7 +27,13 @@ python -m systems.cusparse.build
 python -m systems.cusparse.run --operation spmv
 python -m systems.cusparse.run --operation sddmm
 python -m systems.cusparse.run --operation spgemm
+python -m systems.cusparse.run --operation mttkrp
 ```
+
+The cuSPARSE MTTKRP baseline unfolds the tensor into CSR with one column per
+observed `(j, k)` pair. Each timed iteration constructs the corresponding rows
+of the Khatri–Rao product on the GPU and multiplies with `cusparseSpMM`.
+Tensor conversion and host-to-device input copies happen before timing.
 
 ## MLIR Sparse Tensor
 

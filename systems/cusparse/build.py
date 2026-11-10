@@ -5,7 +5,7 @@ import subprocess
 from benchmarks.args import parse_build_args
 
 
-OPERATIONS = ("spmv", "sddmm", "spgemm")
+OPERATIONS = ("spmv", "sddmm", "spgemm", "mttkrp")
 
 
 def main():
