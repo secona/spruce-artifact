@@ -1,14 +1,32 @@
+"""Run cuSPARSE benchmarks, or return reference arrays without timing or CSVs."""
+
 import ctypes as ct
 from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
-from scipy import io, sparse
 from benchmarks.result import BenchmarkResult
 from benchmarks.args import parse_run_args
-from benchmarks.inputs import load_csf, load_dense
+from benchmarks.inputs import load_csf, load_csr, load_dense
 
-INT_MAX = 2**31 - 1
 OPERATIONS = ("spmv", "sddmm", "spgemm", "mttkrp")
+
+
+class SpgemmOutput(ct.Structure):
+  _fields_ = [
+    ("nnz", ct.c_int64),
+    ("offsets", ct.POINTER(ct.c_int)),
+    ("columns", ct.POINTER(ct.c_int)),
+    ("values", ct.POINTER(ct.c_float)),
+  ]
+
+
+def _csr_arrays(matrix, suffix=""):
+  return {
+    f"shape{suffix}": np.asarray(matrix.shape, dtype=np.int64),
+    f"indptr{suffix}": matrix.indptr,
+    f"indices{suffix}": matrix.indices,
+    f"data{suffix}": matrix.data,
+  }
 
 
 def main():
@@ -49,29 +67,21 @@ def main():
       run_mttkrp(A_path, B_path, C_path, args.repeat, args.device, args.warmup)
 
 
-def run_spmv(A_path, x_path, repeat, device, warmup):
+def run_spmv(A_path, x_path, repeat, device, warmup, *, reference=False):
   run_utc = datetime.now(timezone.utc).isoformat()
 
   library_path = Path("generated") / "cusparse" / "libcusparse_spmv.so"
   assert library_path.is_file()
 
-  matrix = io.mmread(A_path, spmatrix=False)
-  assert not np.iscomplexobj(matrix)
-
-  A = sparse.csr_matrix(matrix, dtype=np.float32)
-  A.sum_duplicates()
-  A.sort_indices()
+  A = load_csr(A_path)
   m, n = A.shape
-
-  assert min(m, n) >= 1
-  assert max(m, n, A.nnz) <= INT_MAX
-  assert np.all(np.isfinite(A.data))
 
   offsets = np.ascontiguousarray(A.indptr, dtype=np.int32)
   columns = np.ascontiguousarray(A.indices, dtype=np.int32)
   values = np.ascontiguousarray(A.data, dtype=np.float32)
-  x = np.load(x_path)
-  samples = np.empty(repeat, dtype=np.float32)
+  x = load_dense(x_path, n, 1)
+  samples = None if reference else np.empty(repeat, dtype=np.float32)
+  output = np.empty(m, dtype=np.float32) if reference else None
 
   library = ct.CDLL(str(library_path))
   benchmark = library.spruce_benchmark_spmv
@@ -88,6 +98,7 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     ct.c_int,
     ct.c_int,
     ct.c_void_p,
+    ct.c_void_p,
   ]
 
   error = benchmark(
@@ -101,10 +112,14 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
     x.ctypes.data,
     warmup,
     repeat,
-    samples.ctypes.data,
+    samples.ctypes.data if samples is not None else None,
+    output.ctypes.data if output is not None else None,
   )
   if error:
     raise RuntimeError(error.decode())
+
+  if reference:
+    return {**_csr_arrays(A), "x": x, "y": output}
 
   result = BenchmarkResult(
     run_utc=run_utc,
@@ -119,41 +134,26 @@ def run_spmv(A_path, x_path, repeat, device, warmup):
   result.write_csv()
 
 
-def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
+def run_sddmm(A_path, B_path, C_path, repeat, device, warmup, *, reference=False):
   run_utc = datetime.now(timezone.utc).isoformat()
 
   library_path = Path("generated") / "cusparse" / "libcusparse_sddmm.so"
   assert library_path.is_file()
 
-  matrix = io.mmread(A_path, spmatrix=False)
-  assert not np.iscomplexobj(matrix)
-
-  A = sparse.csr_matrix(matrix, dtype=np.float32)
-  A.sum_duplicates()
-  A.sort_indices()
+  A = load_csr(A_path)
   m, n = A.shape
 
-  assert min(m, n) >= 1
-  assert max(m, n, A.nnz) <= INT_MAX
-  assert np.all(np.isfinite(A.data))
-
-  factors = []
-  for path, rows in ((B_path, m), (C_path, n)):
-    factor = np.load(path)
-    assert not np.iscomplexobj(factor)
-    assert factor.ndim == 2 and factor.shape[0] == rows
-    assert 1 <= factor.shape[1] <= INT_MAX
-    factor = np.ascontiguousarray(factor, dtype=np.float32)
-    assert np.all(np.isfinite(factor))
-    factors.append(factor)
-  B, C = factors
-  assert B.shape[1] == C.shape[1]
+  B = load_dense(B_path, m, 2)
+  C = load_dense(C_path, n, 2)
+  if B.shape[1] != C.shape[1]:
+    raise ValueError("SDDMM factor ranks must match")
   rank = B.shape[1]
 
   offsets = np.ascontiguousarray(A.indptr, dtype=np.int32)
   columns = np.ascontiguousarray(A.indices, dtype=np.int32)
   values = np.ascontiguousarray(A.data, dtype=np.float32)
-  samples = np.empty(repeat, dtype=np.float32)
+  samples = None if reference else np.empty(repeat, dtype=np.float32)
+  output = np.empty(A.nnz, dtype=np.float32) if reference else None
 
   library = ct.CDLL(str(library_path))
   benchmark = library.spruce_benchmark_sddmm
@@ -172,6 +172,7 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
     ct.c_int,
     ct.c_int,
     ct.c_void_p,
+    ct.c_void_p,
   ]
 
   error = benchmark(
@@ -187,10 +188,14 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
     C.ctypes.data,
     warmup,
     repeat,
-    samples.ctypes.data,
+    samples.ctypes.data if samples is not None else None,
+    output.ctypes.data if output is not None else None,
   )
   if error:
     raise RuntimeError(error.decode())
+
+  if reference:
+    return {**_csr_arrays(A), "b": B, "c": C, "d": output}
 
   result = BenchmarkResult(
     run_utc=run_utc,
@@ -205,28 +210,14 @@ def run_sddmm(A_path, B_path, C_path, repeat, device, warmup):
   result.write_csv()
 
 
-def run_spgemm(A_path, B_path, repeat, device, warmup):
+def run_spgemm(A_path, B_path, repeat, device, warmup, *, reference=False):
   run_utc = datetime.now(timezone.utc).isoformat()
 
   library_path = Path("generated") / "cusparse" / "libcusparse_spgemm.so"
   assert library_path.is_file()
 
-  matrices = []
-  for path in (A_path, B_path):
-    matrix = io.mmread(path, spmatrix=False)
-    assert not np.iscomplexobj(matrix)
-
-    matrix = sparse.csr_matrix(matrix, dtype=np.float32)
-    matrix.sum_duplicates()
-    matrix.sort_indices()
-
-    assert min(matrix.shape) >= 1
-    assert max(*matrix.shape, matrix.nnz) <= INT_MAX
-    assert np.all(np.isfinite(matrix.data))
-
-    matrices.append(matrix)
-
-  A, B = matrices
+  A = load_csr(A_path)
+  B = load_csr(B_path)
   m, k = A.shape
   assert B.shape[0] == k
   n = B.shape[1]
@@ -237,7 +228,8 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
   offsets_b = np.ascontiguousarray(B.indptr, dtype=np.int32)
   columns_b = np.ascontiguousarray(B.indices, dtype=np.int32)
   values_b = np.ascontiguousarray(B.data, dtype=np.float32)
-  samples = np.empty(repeat, dtype=np.float32)
+  samples = None if reference else np.empty(repeat, dtype=np.float32)
+  output = SpgemmOutput() if reference else None
 
   library = ct.CDLL(str(library_path))
   benchmark = library.spruce_benchmark_spgemm
@@ -258,6 +250,7 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     ct.c_int,
     ct.c_int,
     ct.c_void_p,
+    ct.POINTER(SpgemmOutput),
   ]
 
   error = benchmark(
@@ -275,10 +268,26 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
     values_b.ctypes.data,
     warmup,
     repeat,
-    samples.ctypes.data,
+    samples.ctypes.data if samples is not None else None,
+    ct.byref(output) if output is not None else None,
   )
   if error:
     raise RuntimeError(error.decode())
+
+  if reference:
+    free_output = library.spruce_free_spgemm_output
+    free_output.argtypes = [ct.POINTER(SpgemmOutput)]
+    free_output.restype = None
+    try:
+      arrays = {
+        "shape": np.asarray((m, n), dtype=np.int64),
+        "indptr": np.ctypeslib.as_array(output.offsets, shape=(m + 1,)).copy(),
+        "indices": np.ctypeslib.as_array(output.columns, shape=(output.nnz,)).copy(),
+        "data": np.ctypeslib.as_array(output.values, shape=(output.nnz,)).copy(),
+      }
+    finally:
+      free_output(ct.byref(output))
+    return {**_csr_arrays(A, "_a"), **_csr_arrays(B, "_b"), **arrays}
 
   result = BenchmarkResult(
     run_utc=run_utc,
@@ -293,7 +302,7 @@ def run_spgemm(A_path, B_path, repeat, device, warmup):
   result.write_csv()
 
 
-def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
+def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup, *, reference=False):
   run_utc = datetime.now(timezone.utc).isoformat()
 
   library_path = Path("generated") / "cusparse" / "libcusparse_mttkrp.so"
@@ -318,7 +327,8 @@ def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
   columns = np.ascontiguousarray(columns, dtype=np.int32)
   pair_j = np.ascontiguousarray(pairs // p, dtype=np.int32)
   pair_k = np.ascontiguousarray(pairs % p, dtype=np.int32)
-  samples = np.empty(repeat, dtype=np.float32)
+  samples = None if reference else np.empty(repeat, dtype=np.float32)
+  output = np.empty((m, rank), dtype=np.float32) if reference else None
 
   library = ct.CDLL(str(library_path))
   benchmark = library.spruce_benchmark_mttkrp
@@ -341,6 +351,7 @@ def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
     ct.c_int,
     ct.c_int,
     ct.c_void_p,
+    ct.c_void_p,
   ]
 
   error = benchmark(
@@ -360,10 +371,19 @@ def run_mttkrp(A_path, B_path, C_path, repeat, device, warmup):
     c.ctypes.data,
     warmup,
     repeat,
-    samples.ctypes.data,
+    samples.ctypes.data if samples is not None else None,
+    output.ctypes.data if output is not None else None,
   )
   if error:
     raise RuntimeError(error.decode())
+
+  if reference:
+    return {
+      "shape": np.asarray(shape, dtype=np.int64),
+      "positions_j": positions_j, "coordinates_j": coordinates_j,
+      "positions_k": positions_k, "coordinates_k": coordinates_k,
+      "values": values, "b": b, "c": c, "d": output,
+    }
 
   result = BenchmarkResult(
     run_utc=run_utc,

@@ -8,7 +8,7 @@ extern "C" const char *spruce_benchmark_mttkrp(
     int device, int m, int n, int p, int rank, int64_t nnz, int pairs,
     const int *offsets, const int *columns, const float *values,
     const int *pair_j, const int *pair_k, const float *b, const float *c,
-    int warmup, int repetitions, float *samples) {
+    int warmup, int repetitions, float *samples, float *result) {
   static thread_local std::string error;
   try {
     CHECK_CUDA(cudaSetDevice(device));
@@ -46,8 +46,12 @@ extern "C" const char *spruce_benchmark_mttkrp(
                   static_cast<float *>(left.value),
                   static_cast<float *>(right.value),
                   static_cast<float *>(output.value), stream.value);
+          if (result)
+            CHECK_CUDA(cudaMemcpy(result, output.value,
+                                  size_t(m) * rank * sizeof(float),
+                                  cudaMemcpyDeviceToHost));
         },
-        stream.value, &benchmark);
+        stream.value, samples ? &benchmark : nullptr);
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();

@@ -6,7 +6,8 @@
 extern "C" const char *
 spruce_benchmark_spmv(int device, int m, int n, int64_t nnz, const int *offsets,
                       const int *columns, const float *values, const float *x,
-                      int warmup, int repetitions, float *samples) {
+                      int warmup, int repetitions, float *samples,
+                      float *result) {
   static thread_local std::string error;
   try {
     CHECK_CUDA(cudaSetDevice(device));
@@ -33,8 +34,11 @@ spruce_benchmark_spmv(int device, int m, int n, int64_t nnz, const int *offsets,
                static_cast<int *>(cols.value), static_cast<float *>(data.value),
                static_cast<float *>(input.value),
                static_cast<float *>(output.value), stream.value);
+          if (result)
+            CHECK_CUDA(cudaMemcpy(result, output.value, size_t(m) * sizeof(float),
+                                  cudaMemcpyDeviceToHost));
         },
-        stream.value, &benchmark);
+        stream.value, samples ? &benchmark : nullptr);
     return nullptr;
   } catch (const std::exception &exception) {
     error = exception.what();
