@@ -9,7 +9,7 @@
 | Nacho | ❌ | ❌ | ✅ | ❌ |
 | SparseTIR | ✅ | ✅ | ❌ | ✅ |
 
-## Setup
+## Native setup
 
 ```sh
 git submodule update --init --recursive --depth=1
@@ -19,6 +19,14 @@ python -m dataset.generate_inputs
 ```
 
 Run these commands from the repository root.
+
+## Docker setup
+
+```sh
+docker build -t spruce-artifact .
+mkdir -p generated
+docker run --rm -it --gpus all -v "$PWD/generated:/work/generated" spruce-artifact
+```
 
 ## cuSPARSE
 
@@ -32,8 +40,12 @@ python -m systems.cusparse.run --operation mttkrp
 
 ## MLIR Sparse Tensor
 
+The image sets `LLVM_DIR=/opt/llvm` for its bundled LLVM/MLIR 23.1.6.
+For a compatible external installation, add
+`-v "/path/to/llvm/install:/opt/llvm:ro"` before the image name in the
+Docker run command. For native runs, set `LLVM_DIR` to your installation.
+
 ```sh
-export LLVM_DIR=/path/to/llvm/install
 python -m systems.mlir_sparse_tensor.build
 python -m systems.mlir_sparse_tensor.run --operation spmv
 python -m systems.mlir_sparse_tensor.run --operation mttkrp
